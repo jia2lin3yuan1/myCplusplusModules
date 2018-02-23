@@ -101,8 +101,11 @@ public:
         return rst;
     }
     
-    bool empty(){
+    bool empty() const{
         return m_queue.empty();
+    }
+    auto size() const{
+        return m_keys_map.size();
     }
 
     void deleteKey(UINT32 k0, UINT32 k1, UINT32 k2){
@@ -133,7 +136,7 @@ protected:
     // parameters in computation.
     double m_seed_bic_alpha, m_seed_bic_scale;
     double m_rm_bic_alpha, m_rm_fit_cost_thr, m_rm_fit_cost_penalty, m_rm_cost_thr;
-    UINT32 m_prop_size_thr;
+    UINT32 m_prop_size_thr, m_seed_size_thr;
     UINT32 m_rm_bic_addi_len_oft;
 
 public:
@@ -142,6 +145,11 @@ public:
         m_seg_dpI.Init(m_ht, m_wd, es_chNum);
         m_seg_updI.Init(m_ht, m_wd, es_chNum);
         m_maskI.Init(m_ht, m_wd);
+
+        SetupConfig();
+    }
+    CDataTempl<UINT32>& GetFinalResult(){
+        return m_maskI;
     }
     void SetupConfig();
     
@@ -151,7 +159,7 @@ public:
 
     // Generate a label image with segment growing.
     void ImagePartition(CDataTempl<UINT32> &sem_bgI);
-    void GrowingFromASegment(UINT32 py, UINT32 st, UINT32 end, UINT32 propId);
+    void GrowingFromASegment(UINT32 py, UINT32 st, UINT32 end, UINT32 &propId);
     void GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
     void GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
 
@@ -174,7 +182,7 @@ double Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UIN
     };
 
     auto ComputeBICcost = [&](UINT32 x0, UINT32 x1, UINT32 bias){
-        return glb_BIC_LUT[x1-x0+bias+m_rm_bic_addi_len_oft];
+        return glb_BIC_LUT[_CLIP(UINT32(abs(x1-x0)+bias+m_rm_bic_addi_len_oft), 0, 99)];
     };
     auto ComputeFitCost = [&](UINT32 py, UINT32 px){
         // H direction.
@@ -220,15 +228,15 @@ double Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UIN
     // compute BIC cost and FIT cost
     UINT32 len_A = abs(seg_end_A - seg_st_A) + 1;
     double bic_A = ComputeBICcost(mask_st_A, seg_st_A, 1);
-    bic_A += ComputeBICcost(mask_st_A, seg_end_A, UINT32(1+0.1*len_A));
+    bic_A += ComputeBICcost(mask_st_A, seg_end_A, 1+0.1*len_A);
     bic_A -= ComputeBICcost(mask_st_A, seg_st_A, 0);
-    bic_A -= ComputeBICcost(mask_st_A, seg_end_A, UINT32(2+0.1*len_A));
+    bic_A -= ComputeBICcost(mask_st_A, seg_end_A, 2+0.1*len_A);
 
     UINT32 len_B = abs(seg_end_B - seg_st_B) + 1;
     double bic_B = ComputeBICcost(mask_st_B, seg_st_B, 1);
-    bic_B += ComputeBICcost(mask_st_B, seg_end_B, UINT32(1+0.2*len_B));
+    bic_B += ComputeBICcost(mask_st_B, seg_end_B, 1+0.2*len_B);
     bic_B -= ComputeBICcost(mask_st_B, seg_st_B, 0);
-    bic_B -= ComputeBICcost(mask_st_B, seg_end_B, UINT32(2+0.2*len_B));
+    bic_B -= ComputeBICcost(mask_st_B, seg_end_B, 2+0.2*len_B);
 
     double fit_A = ComputeFitCost(py, px);
 
@@ -269,6 +277,8 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         // update recording of segments in m_seg_updI after being cutted. 
         UINT32 st  = m_seg_updI.GetData(py, px, (is_hor? es_stH : es_stV));
         UINT32 end = m_seg_updI.GetData(py, px, (is_hor? es_endH: es_endV));
+        if(is_hor)
+            m_segSeedsQ.deleteKey(py, st, end);
         
         // compute new st/end and error for each sub-segment.
         double fit_cost  = m_seg_dpI.GetData(py, px, (is_hor? es_errH : es_errV));
@@ -283,7 +293,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             UINT32 BIC_cost_c  = _CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
             double st_cost  = fit_cost + m_seed_bic_alpha*glb_BIC_LUT[BIC_cost_c];
             UpdateSegUpdI(py, px, st, mid, end, st_cost, 1e3, is_hor);
-            if(is_hor)
+            if(is_hor && mid > st + m_seed_size_thr)
                 m_segSeedsQ.push(st_cost, py, st, mid-1);
         }
         else{
@@ -296,12 +306,10 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             UINT32 BIC_cost_c =_CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
             double end_cost  = fit_cost + m_seed_bic_alpha*glb_BIC_LUT[BIC_cost_c];
             UpdateSegUpdI(py, px, st, mid, end, 1e3, end_cost, is_hor);
-            if(is_hor)
+            if(is_hor && end > mid - 1 + m_seed_size_thr)
                 m_segSeedsQ.push(end_cost, py, mid, end);
         }
 
-        if(is_hor)
-            m_segSeedsQ.deleteKey(py, st, end);
     };
 
     // starting from corner points on the boundary.
@@ -315,7 +323,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         double rm_cost; 
         bdPix_pq.pop(rm_cost, py, px, tmp);
         if(rm_cost < m_rm_cost_thr){ // remove the pixel
-            mask.SetData(0, py, px);
+            mask.SetData(ms_BG, py, px);
             
             if (py>0 && mask.GetData(py-1, px)==2)
                 ComputeCost(py-1, px, bdPix_pq);
@@ -366,7 +374,9 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
     
     // extend from boundary pixels.
     m_borderH.clear();
+    m_borderH.resize(m_ht, make_pair(m_wd, 0));
     m_borderV.clear();
+    m_borderV.resize(m_wd, make_pair(m_ht, 0));
     for(int k=0; k < pre_bds.size(); k++){
         UINT32 py = pre_bds[k].first;
         UINT32 px = pre_bds[k].second;
@@ -394,10 +404,10 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
     }
 }
 
-void Segment_Grow::GrowingFromASegment(UINT32 py, UINT32 st, UINT32 end, UINT32 propId){
+void Segment_Grow::GrowingFromASegment(UINT32 py, UINT32 st, UINT32 end, UINT32 &propId){
         
     CDataTempl<UINT32> curMask(m_ht, m_wd);
-    curMask.ResetBulkData(ms_FG, py, 1, st, 1);
+    curMask.ResetBulkData(ms_FG, py, 1, st, end-st+1);
 
     UINT32 grow_tot = 0, grow_1step = 30; 
     bool ext_hor = false;
@@ -413,12 +423,15 @@ void Segment_Grow::GrowingFromASegment(UINT32 py, UINT32 st, UINT32 end, UINT32 
 
     if(grow_tot > m_prop_size_thr){
         curMask.ModifyMaskOnNonZeros(m_maskI, propId);
+        propId ++;
     }
 }
 
 
 void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
+    m_seg_updI.Copy(m_seg_dpI);
     m_maskI.Copy(sem_bgI);
+
     UINT32 propId = 2;
     while(true){
         // pop out seed, and check if it valid.
@@ -429,7 +442,6 @@ void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
         }
         
         GrowingFromASegment(py, st, end, propId);
-        propId += 1;
     }
 }
 
@@ -452,7 +464,7 @@ void Segment_Grow::AssignDPSegment_H(CDataTempl<UINT32> &sem_bgI, CDataTempl<dou
     for(UINT32 k=0; k<seg_dpIdx.size()-1; k++){
         UINT32 st = seg_dpIdx[k], end=seg_dpIdx[k+1];
         double seg_cost = 1e3;
-        if (sem_bgI.GetData(py, end) == 0){
+        if (sem_bgI.GetData(py, st+1) == 0){
             int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
             seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
             m_segSeedsQ.push(seg_cost, py, st, end);
@@ -468,7 +480,7 @@ void Segment_Grow::AssignDPSegment_V(CDataTempl<UINT32> &sem_bgI, CDataTempl<dou
     for(UINT32 k=0; k<seg_dpIdx.size()-1; k++){
         UINT32 st = seg_dpIdx[k], end=seg_dpIdx[k+1];
         double seg_cost = 1e3;
-        if (sem_bgI.GetData(end, px) == 0){
+        if (sem_bgI.GetData(st+1, px) == 0){
             int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
             seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
         }
@@ -488,7 +500,9 @@ void Segment_Grow::SetupConfig(){
     m_rm_fit_cost_thr = 2e-2;
     m_rm_fit_cost_penalty = 1e3;
     m_rm_cost_thr = 0;
+
     m_prop_size_thr = 40;
+    m_seed_size_thr = 5;
 
     m_rm_bic_addi_len_oft=1;
 }

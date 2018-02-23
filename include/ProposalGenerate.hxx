@@ -19,15 +19,15 @@ void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Grow &segGrow,  CDataTem
     // Record the status into global segment_grow. 
     segGrow.AssignAllSegment(fit_err, iniIdxs, line, isRow);
     if(isRow)
-        segGrow.AssignDPSegment_H(fit_err, dpIdxs, line);
+        segGrow.AssignDPSegment_H(bgSem, fit_err, dpIdxs, line);
     else
-        segGrow.AssignDPSegment_V(fit_err, dpIdxs, line);
+        segGrow.AssignDPSegment_V(bgSem, fit_err, dpIdxs, line);
 }
 
 
 
 
-void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem){
+void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, CDataTempl<UINT32> &maskI){
     
     UINT32 imgHt = distM.GetYDim();
     UINT32 imgWd = distM.GetXDim();
@@ -43,6 +43,9 @@ void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem){
     for(UINT32 k=0; k < imgWd; ++k){
         SegmentFittingOneLine(segFit_V, segGrow, distM, bgSem, k, false);
     }
+
+    segGrow.ImagePartition(bgSem);
+    maskI = segGrow.GetFinalResult();
 }
 
 

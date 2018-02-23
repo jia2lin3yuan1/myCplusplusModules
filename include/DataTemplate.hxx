@@ -125,16 +125,23 @@ void CDataTempl<BT>::ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val){
 
 template <typename BT>
 void CDataTempl<BT>::FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV){
-    
+    CDataTempl<BT> visitedMask(m_yDim, m_xDim, m_zDim); 
     std::stack<std::pair<UINT32, UINT32> > ptStack;
     // left to right, up to down, find first fg pixel.
-    for(UINT32 y=0; y<m_yDim; y++)
-        for(UINT32 x=0; x< m_xDim; x++)
+    bool findFG = false;
+    for(UINT32 y=0; y<m_yDim; y++){
+        for(UINT32 x=0; x< m_xDim; x++){
             if(this->GetData(y,x)==fgV){
                 ptStack.push(std::make_pair(y, x));
+                visitedMask.SetData(1, y, x);
+                findFG = true;
                 break;
             }
-    
+        }
+        if(findFG)
+            break;
+    }
+
     // find all bd pixels along boundary.
     UINT32 y, x, cnt;
     UINT32 nei[18];
@@ -158,9 +165,12 @@ void CDataTempl<BT>::FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > 
         }
         
         if(cnt < 18){
-            bds.push_back(std::make_pair(y,x));
+            bds.push_back(std::make_pair(y, x));
             for(int k = 0; k < cnt; k+= 2){
-                bds.push_back(std::make_pair(nei[k], nei[k+1]));
+                if(visitedMask.GetData(nei[k], nei[k+1]) == 0){
+                    ptStack.push(std::make_pair(nei[k], nei[k+1]));
+                    visitedMask.SetData(1, nei[k], nei[k+1]);
+                }
             }
         }
     }
@@ -178,12 +188,14 @@ UINT32 CDataTempl<BT>::FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT
             cnt += 1;
             idx += step;
         }
+        cnt -= 1;
     }
     else{
         while(idx >= idx_st && m_pBuf[idx] > 0){
             cnt -= 1;
             idx -= step;
         }
+        cnt += 1;
     }
 
     return step>1? py+cnt : px+cnt;
