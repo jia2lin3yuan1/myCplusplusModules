@@ -1,0 +1,1 @@
+g++ -std=c++1y testSegmentFitting.cxx -o aTest -g -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
