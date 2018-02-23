@@ -75,7 +75,7 @@ public:
     void SetDataByIdx(BT val, UINT32 k);
 
     // normal member functions.
-    BT GetData(UINT32 y, UINT32 x=0, UINT32 z=0);
+    BT GetData(SINT32 y, SINT32 x=0, SINT32 z=0);
     void GetBulkData(BT data[], UINT32 sy, UINT32 dy, UINT32 sx=0, UINT32 dx=0, UINT32 sz=0, UINT32 dz=0);
     
     void Copy(CDataTempl<BT> &data);
@@ -218,11 +218,11 @@ inline void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
 
 // normal member functions.
 template <typename BT>
-BT CDataTempl<BT>::GetData(UINT32 y, UINT32 x, UINT32 z){
-    x = x < 0? x : x > m_xDim-1? m_xDim-1 : x;
-    y = y < 0? y : y > m_yDim-1? m_yDim-1 : y;
-    z = z < 0? z : z > m_zDim-1? m_zDim-1 : z;
-
+BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z){
+    x = x < 0? 0 : x > m_xDim-1? m_xDim-1 : x;
+    y = y < 0? 0 : y > m_yDim-1? m_yDim-1 : y;
+    z = z < 0? 0 : z > m_zDim-1? m_zDim-1 : z;
+    
     return m_pBuf[this->Coordinate2Index(y,x,z)];
 }
 

@@ -2,22 +2,23 @@
 #define SEGMENT_FITTING_HXX
 
 #include "DataTemplate.hxx"
-
+using namespace std;
 // Create of class Segment_Fit.
 // Target: Given a 1D vector, find the best way to fit it into several sections.
 //
 class Segment_Fit{
 protected:
     UINT32                m_len;
-    CDataTempl<double>      m_lutX;
-    CDataTempl<double>      m_Y0;
-    double                  m_meanY0;
-    CDataTempl<double>      m_Y1;
-    double                m_meanY1;
-    CDataTempl<UINT32>      m_Ysem;
+    CDataTempl<UINT32>    m_Ysem;
+    CDataTempl<double>    m_Y0;
+    CDataTempl<double>    m_Y1;
     
-    std::vector<UINT32>   m_iniIdxs;
-    std::vector<UINT32>   m_dpIdxs;
+    double                m_meanY0;
+    double                m_meanY1;
+    
+    CDataTempl<double>    m_lutX;
+    vector<UINT32>   m_iniIdxs;
+    vector<UINT32>   m_dpIdxs;
 
 public:
     Segment_Fit(UINT32 len){
@@ -30,11 +31,12 @@ public:
     
     void InitLUTx();
 
-    void AssignLine_tmp(std::vector<double> Y0, std::vector<double> Y1, std::vector<UINT32> Ysem);
     void AssignY(CDataTempl<double> &matY, CDataTempl<UINT32> &matYsem, UINT32 k, bool isRow=true);
+    vector<UINT32>& GetIniIdxs(){return m_iniIdxs;}
+    vector<UINT32>& GetdpIdxs(){return m_dpIdxs;}
 
     // fitting of segment starting at m_iniIdxs[stK]:
-    std::vector<double> FittingStartPoint(CDataTempl<double> &Y, double meanY, UINT32 stK, UINT8 mtd=1);
+    vector<double> FittingStartPoint(CDataTempl<double> &Y, double meanY, UINT32 stK, UINT8 mtd=1);
 
     // compute fitting error for each combination of start and end point. 
     void FittingFeasibleSolution(CDataTempl<double> &fit_err);
@@ -65,15 +67,6 @@ void Segment_Fit::InitLUTx(){
     }
 }
 
-void Segment_Fit::AssignLine_tmp(std::vector<double> Y0, std::vector<double> Y1, std::vector<UINT32> Ysem){
-    m_Y0.Assign(Y0);
-    m_Y1.Assign(Y1);
-    m_Ysem.Assign(Ysem);
-    
-    m_meanY0 = m_Y0.Mean();
-    m_meanY1 = m_Y1.Mean();
-}
-
 void Segment_Fit::AssignY(CDataTempl<double> &matY, CDataTempl<UINT32> &matYsem, UINT32 k, bool isRow){
     if (isRow){
         matY.GetRow(m_Y0, k, 0);
@@ -88,6 +81,9 @@ void Segment_Fit::AssignY(CDataTempl<double> &matY, CDataTempl<UINT32> &matYsem,
 
     m_meanY0 = m_Y0.Mean();
     m_meanY1 = m_Y1.Mean();
+    
+    m_iniIdxs.clear();
+    m_dpIdxs.clear();
 }
 
 // fitting of segment:
@@ -99,12 +95,12 @@ void Segment_Fit::AssignY(CDataTempl<double> &matY, CDataTempl<UINT32> &matYsem,
 //     w = sum_(yx-bx)/sum_x^2.
 //
 //     err = sum((wx+b-y)^2) = sum(w^2x^2+2wbx+b^2 - 2wxy-2by + y^2)
-std::vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double meanY, UINT32 stK, UINT8 mtd){
+vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double meanY, UINT32 stK, UINT8 mtd){
     // compute acc_y, acc_xy, acc_y_2
     UINT32 len = m_len - m_iniIdxs[stK];
-    std::vector<double> acc_y(len, 0);
-    std::vector<double> acc_xy(len, 0);
-    std::vector<double> acc_y_2(len, 0);
+    vector<double> acc_y(len, 0);
+    vector<double> acc_xy(len, 0);
+    vector<double> acc_y_2(len, 0);
     acc_y[0]   = Y.GetData(m_iniIdxs[stK]);
     acc_y_2[0] = pow(Y.GetData(m_iniIdxs[stK]), 2);
     for(UINT32 k =1; k < len; k++){
@@ -115,7 +111,7 @@ std::vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double
 
     // compute w and b.
     UINT32 idx_len = m_iniIdxs.size();
-    std::vector<double> fit_err(idx_len, 0.);
+    vector<double> fit_err(idx_len, 0.);
     for(UINT32 k =stK+1; k < idx_len; k ++){
         UINT32 tk = m_iniIdxs[k]-m_iniIdxs[stK];
         double w, b;
@@ -130,7 +126,7 @@ std::vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double
 
         double err_sum = 2*w*b*m_lutX.GetData(tk, 1)+pow(b, 2)*(m_lutX.GetData(tk, 5)+1)+pow(w,2)*m_lutX.GetData(tk, 0) - 2*w*acc_xy[tk]-2*b*acc_y[tk] + acc_y_2[tk];
         err_sum    = err_sum>0? err_sum : -err_sum;
-        fit_err[k] = err_sum/std::min(std::max(acc_y[tk], 1e-9), meanY*(m_lutX.GetData(tk, 5)+1));
+        fit_err[k] = err_sum/min(max(acc_y[tk], 1e-9), meanY*(m_lutX.GetData(tk, 5)+1));
     }
 
     return fit_err;
@@ -140,8 +136,8 @@ std::vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double
 void Segment_Fit::FittingFeasibleSolution(CDataTempl<double> &fit_err){
    UINT32 len = m_iniIdxs.size();
    for(UINT32 k = 0; k < len; k ++){
-       std::vector<double> fit_err_0 = FittingStartPoint(m_Y0, m_meanY0, k);
-       std::vector<double> fit_err_1 = FittingStartPoint(m_Y1, m_meanY1, k);
+       vector<double> fit_err_0 = FittingStartPoint(m_Y0, m_meanY0, k);
+       vector<double> fit_err_1 = FittingStartPoint(m_Y1, m_meanY1, k);
        for(UINT32 j=k+1; j < len; j++){
            fit_err.SetData(fit_err_0[j]+fit_err_1[j], k, j);
        }
@@ -150,7 +146,7 @@ void Segment_Fit::FittingFeasibleSolution(CDataTempl<double> &fit_err){
 
 // find key points given Y0 and Y1.
 void Segment_Fit::find_keypoints(){
-    std::map<UINT32, UINT32> key_map;
+    map<UINT32, UINT32> key_map;
     // find all key points
     key_map[0]       = 1;
     for(UINT32 k=1; k < m_len-1; k ++){
@@ -167,8 +163,7 @@ void Segment_Fit::find_keypoints(){
     key_map[m_len-1] = 1;
     
     // save key ppoints to the vector.
-    m_iniIdxs.clear();
-    for(std::map<UINT32, UINT32>::iterator it=key_map.begin(); it != key_map.end(); ++it){
+    for(map<UINT32, UINT32>::iterator it=key_map.begin(); it != key_map.end(); ++it){
         m_iniIdxs.insert(m_iniIdxs.end(), it->first);
     }
 }
@@ -178,10 +173,10 @@ void Segment_Fit::DP_segments(CDataTempl<double> &fit_err, double BIC_alpha, dou
     UINT32 len = m_iniIdxs.size();
 
     // forward-backward recordings:
-    std::vector<float> acc_costV(len, 0);
-    std::vector<float> seg_costV(len, 0);
-    std::vector<int>   acc_numV(len, 0);
-    std::vector<int>   bk_routeV(len, 0);
+    vector<float> acc_costV(len, 0);
+    vector<float> seg_costV(len, 0);
+    vector<int>   acc_numV(len, 0);
+    vector<int>   bk_routeV(len, 0);
 
     // forward.
     UINT32 st_k = 0;
@@ -195,8 +190,8 @@ void Segment_Fit::DP_segments(CDataTempl<double> &fit_err, double BIC_alpha, dou
            bk_routeV[k] = k-1;
         }
         else{
-            std::vector<double> tmp_seg_cost(k, 0);
-            std::vector<double> tmp_com_cost(k, 0);
+            vector<double> tmp_seg_cost(k, 0);
+            vector<double> tmp_com_cost(k, 0);
             double min_cost = 2*fit_inf_err;
             UINT32 min_idx  = 0;
             double BIC_c;
@@ -224,6 +219,7 @@ void Segment_Fit::DP_segments(CDataTempl<double> &fit_err, double BIC_alpha, dou
         m_dpIdxs.insert(m_dpIdxs.begin(), m_iniIdxs[ci]);
         ci = bk_routeV[ci];
     }
+    m_dpIdxs.insert(m_dpIdxs.begin(), m_iniIdxs[ci]);
 }
 
 #endif
