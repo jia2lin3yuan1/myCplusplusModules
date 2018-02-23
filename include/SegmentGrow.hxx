@@ -117,7 +117,6 @@ enum SegDP_type {es_stH=0, es_endH, es_errH, es_stV, es_endV, es_errV, es_chNum}
 enum Mask_type {ms_BG=0, ms_FG, ms_POS_FG};
 class Segment_Grow{
 protected:
-
     CDataTempl<UINT32>   m_maskI; // segment grow mask. 0-unprocessed data, 1-background. >1 - grown region label.
     map<string, double> m_seg_hmap; // all possible H/V segments. key is 'line-st-end'. value is the fitting error.
     map<string, double> m_seg_vmap;
@@ -133,9 +132,9 @@ protected:
 
     // parameters in computation.
     double m_seed_bic_alpha, m_seed_bic_scale;
-    double m_rm_bic_alpha,  m_rm_bic_addi_len_oft;
-    double m_rm_fit_cost_thr, m_rm_fit_cost_penalty, m_rm_cost_thr;
+    double m_rm_bic_alpha, m_rm_fit_cost_thr, m_rm_fit_cost_penalty, m_rm_cost_thr;
     UINT32 m_prop_size_thr;
+    UINT32 m_rm_bic_addi_len_oft;
 
 public:
     Segment_Grow(UINT32 ht, UINT32 wd){
@@ -144,10 +143,11 @@ public:
         m_seg_updI.Init(m_ht, m_wd, es_chNum);
         m_maskI.Init(m_ht, m_wd);
     }
+    void SetupConfig();
     
-    void AssignAllSegment(UINT32 line, bool isHor, CDataTempl<double> &fit_err, vector<UINT32> &seg_iniIdx);
-    void AssignDPSegment_H(UINT32 py, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx);
-    void AssignDPSegment_V(UINT32 px, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx);
+    void AssignAllSegment( CDataTempl<double> &fit_err, vector<UINT32> &seg_iniIdx, UINT32 line, bool isRow);
+    void AssignDPSegment_H(CDataTempl<UINT32> &sem_bgI, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx, UINT32 py);
+    void AssignDPSegment_V(CDataTempl<UINT32> &sem_bgI, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx, UINT32 px);
 
     // Generate a label image with segment growing.
     void ImagePartition(CDataTempl<UINT32> &sem_bgI);
@@ -155,17 +155,17 @@ public:
     void GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
     void GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
 
-    double ComputeOneNodeCost(UINT32 py, UINT32 px, bool ext_hor);
+    double ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor);
 
 };
 
 // compute the cost of keep (py, px)
-double Segment_Grow::ComputeOneNodeCost(UINT32 py, UINT32 px, bool ext_hor){
-    auto relocate_start_end = [&](UINT32 &seg_st, UINT32 &seg_end, UINT32 &mask_st, UINT32 &mask_end, bool isHor){
-        seg_st   = m_seg_lodI.GetData(py, px, (isHor? es_stH:es_stV));
-        seg_end  = m_seg_lodI.GetData(py, px, (isHor? es_endH:es_endV));
-        mask_end = mask.FindMaskBorderPoint(py, px, seg_st, seg_end, (isHor? 1 : m_wd));
-        mask_st  = isHor? px : py;
+double Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor){
+    auto relocate_start_end = [&](UINT32 &seg_st, UINT32 &seg_end, UINT32 &mask_st, UINT32 &mask_end, bool isRow){
+        seg_st   = m_seg_updI.GetData(py, px, (isRow? es_stH:es_stV));
+        seg_end  = m_seg_updI.GetData(py, px, (isRow? es_endH:es_endV));
+        mask_end = mask.FindMaskBorderPoint(py, px, seg_st, seg_end, (isRow? 1 : m_wd));
+        mask_st  = isRow? px : py;
         if(mask_end >= mask_st){
             seg_end = seg_st;
         }
@@ -178,27 +178,27 @@ double Segment_Grow::ComputeOneNodeCost(UINT32 py, UINT32 px, bool ext_hor){
     };
     auto ComputeFitCost = [&](UINT32 py, UINT32 px){
         // H direction.
-        UINT32 st_x  = m_seg_dpLocI.GetData(py, px, es_stH);
-        UINT32 end_x = m_seg_dpLocI.GetData(py, px, es_endH);
+        UINT32 st_x  = m_seg_dpI.GetData(py, px, es_stH);
+        UINT32 end_x = m_seg_dpI.GetData(py, px, es_endH);
         UINT32 bd_x0 = m_borderH[py].first;
         UINT32 bd_x1 = m_borderH[py].second;
         if(bd_x0 < bd_x1){
-            st_x  = min(st_x, m_seg_dpLocI.GetData(py, bd_x0, es_stH));
-            end_x = max(end_x, m_seg_dpLocI.GetData(py, bd_x1, es_endH));
+            st_x  = min(st_x, m_seg_dpI.GetData(py, bd_x0, es_stH));
+            end_x = max(end_x, m_seg_dpI.GetData(py, bd_x1, es_endH));
         }
-        double fit_cost_h = m_seg_hmap[Constructkey(py, st_x, end_x)];
-        fit_cost_h = fit_cost_h + m_rm_fit_cost_penalty*(fit_cost_h>m_rm_fit_cost_thr);_
+        double fit_cost_h = m_seg_hmap[ConstructKey(py, st_x, end_x)];
+        fit_cost_h = fit_cost_h + m_rm_fit_cost_penalty*(fit_cost_h>m_rm_fit_cost_thr);
         // V direction.
-        UINT32 st_y  = m_seg_dpLocI.GetData(py, px, es_stV);
-        UINT32 end_y = m_seg_dpLocI.GetData(py, px, es_endV);
+        UINT32 st_y  = m_seg_dpI.GetData(py, px, es_stV);
+        UINT32 end_y = m_seg_dpI.GetData(py, px, es_endV);
         UINT32 bd_y0 = m_borderV[px].first;
         UINT32 bd_y1 = m_borderV[px].second;
         if(bd_y0 < bd_y1){
-            st_y  = min(st_y, m_seg_dpLocI.GetData(bd_y0, px, es_stV));
-            end_y = max(end_y, m_seg_dpLocI.GetData(bd_y1, px, es_endV));
+            st_y  = min(st_y, m_seg_dpI.GetData(bd_y0, px, es_stV));
+            end_y = max(end_y, m_seg_dpI.GetData(bd_y1, px, es_endV));
         }
-        double fit_cost_v = m_seg_vmap[Constructkey(px, st_y, end_y)];
-        fit_cost_v = fit_cost_v + m_rm_fit_cost_penalty*(fit_cost_v>m_rm_fit_cost_thr);_
+        double fit_cost_v = m_seg_vmap[ConstructKey(px, st_y, end_y)];
+        fit_cost_v = fit_cost_v + m_rm_fit_cost_penalty*(fit_cost_v>m_rm_fit_cost_thr);
 
         return fit_cost_h + fit_cost_v;
     };
@@ -218,17 +218,17 @@ double Segment_Grow::ComputeOneNodeCost(UINT32 py, UINT32 px, bool ext_hor){
     }
 
     // compute BIC cost and FIT cost
-    UINT32 len_A = abs(segs_end_A - segs_st_A) + 1;
-    double bic_A = ComputeBICcost(mask_st_A, segs_st_A, 1);
-    bic_A += compute_BIC_cost(mask_st_A, segs_end_A, 1+0.1*len_A);
-    bic_A -= compute_BIC_cost(mask_st_A, segs_st_A, 0);
-    bic_A -= compute_BIC_cost(mask_st_A, segs_end_A, 2+0.1*len_A);
+    UINT32 len_A = abs(seg_end_A - seg_st_A) + 1;
+    double bic_A = ComputeBICcost(mask_st_A, seg_st_A, 1);
+    bic_A += ComputeBICcost(mask_st_A, seg_end_A, UINT32(1+0.1*len_A));
+    bic_A -= ComputeBICcost(mask_st_A, seg_st_A, 0);
+    bic_A -= ComputeBICcost(mask_st_A, seg_end_A, UINT32(2+0.1*len_A));
 
-    UINT32 len_B = abs(segs_end_B - segs_st_B) + 1;
-    double bic_B = ComputeBICcost(mask_st_B, segs_st_B, 1);
-    bic_B += compute_BIC_cost(mask_st_B, segs_end_B, 1+0.2*len_B);
-    bic_B -= compute_BIC_cost(mask_st_B, segs_st_B, 0);
-    bic_B -= compute_BIC_cost(mask_st_B, segs_end_B, 2+0.2*len_B);
+    UINT32 len_B = abs(seg_end_B - seg_st_B) + 1;
+    double bic_B = ComputeBICcost(mask_st_B, seg_st_B, 1);
+    bic_B += ComputeBICcost(mask_st_B, seg_end_B, UINT32(1+0.2*len_B));
+    bic_B -= ComputeBICcost(mask_st_B, seg_st_B, 0);
+    bic_B -= ComputeBICcost(mask_st_B, seg_end_B, UINT32(2+0.2*len_B));
 
     double fit_A = ComputeFitCost(py, px);
 
@@ -236,7 +236,7 @@ double Segment_Grow::ComputeOneNodeCost(UINT32 py, UINT32 px, bool ext_hor){
 }
 
 void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor){
-    auto ComputeCost = [&](UINT32 py, UINT32 px, PQ_cost &cost_heap){
+    auto ComputeCost = [&](UINT32 py, UINT32 px, auto &cost_heap){
         // if it's not possible FG, or it's not a corner point, return directly.
         if(mask.GetData(py, px) != ms_POS_FG)
             return;
@@ -245,7 +245,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         else if(py > 0 && mask.GetData(py-1, px)>0 && py < m_ht-1 && mask.GetData(py+1, px)>0)
             return;
         else if (mask.GetData(py, px) == 2){
-            double rm_cost = ComputeOneNodeCost(py, px);
+            double rm_cost = ComputeOneNodeCost(mask, py, px, ext_hor);
             cost_heap.push(rm_cost, py, px, px);
         }
     };
@@ -280,7 +280,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
                 return;
             }
 
-            double BIC_cost_c  = _CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
+            UINT32 BIC_cost_c  = _CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
             double st_cost  = fit_cost + m_seed_bic_alpha*glb_BIC_LUT[BIC_cost_c];
             UpdateSegUpdI(py, px, st, mid, end, st_cost, 1e3, is_hor);
             if(is_hor)
@@ -293,7 +293,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
                 return;
             }
             
-            double BIC_cost_c =_CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
+            UINT32 BIC_cost_c =_CLIP(int((mid-st)*m_seed_bic_scale), 0, 99); 
             double end_cost  = fit_cost + m_seed_bic_alpha*glb_BIC_LUT[BIC_cost_c];
             UpdateSegUpdI(py, px, st, mid, end, 1e3, end_cost, is_hor);
             if(is_hor)
@@ -385,7 +385,7 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         UINT32 line = ext_hor? py : px;
         for(int sk = st; sk <= end; sk++){
             if(GetMaskData(line, sk) == ms_BG)
-                SetMaskData(ms_PS_FG, line, sk);
+                SetMaskData(ms_POS_FG, line, sk);
         }
 
         // set edge pixel to bdPair, used as seed for shrink processing.
@@ -435,8 +435,8 @@ void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
 
 
 
-void Segment_Grow::AssignAllSegment(UINT32 line, bool isHor, CDataTempl<double> &fit_err, vector<UINT32> &seg_iniIdx){
-    map<string, double> &ref_map = isHor? m_seg_hmap : m_seg_vmap;
+void Segment_Grow::AssignAllSegment(CDataTempl<double> &fit_err, vector<UINT32> &seg_iniIdx, UINT32 line, bool isRow=true){
+    map<string, double> &ref_map = isRow? m_seg_hmap : m_seg_vmap;
     // adding to the whole map
     for(UINT32 k0=0; k0<seg_iniIdx.size()-1; k0++){
         for(UINT32 k1=k0+1; k1<seg_iniIdx.size(); k1++){
@@ -447,30 +447,50 @@ void Segment_Grow::AssignAllSegment(UINT32 line, bool isHor, CDataTempl<double> 
     }
 }
 
-void Segment_Grow::AssignDPSegment_H(UINT32 py, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx){
+void Segment_Grow::AssignDPSegment_H(CDataTempl<UINT32> &sem_bgI, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx, UINT32 py){
     // adding dp result to seed.
     for(UINT32 k=0; k<seg_dpIdx.size()-1; k++){
         UINT32 st = seg_dpIdx[k], end=seg_dpIdx[k+1];
-        int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
-        double seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
-        m_segSeedsQ.push(seg_cost, py, st, end);
+        double seg_cost = 1e3;
+        if (sem_bgI.GetData(py, end) == 0){
+            int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
+            seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
+            m_segSeedsQ.push(seg_cost, py, st, end);
+        }
 
         m_seg_dpI.ResetBulkData(st, py, 1, st, end-st+1, es_stH, 1);
         m_seg_dpI.ResetBulkData(end, py, 1, st, end-st+1, es_endH, 1);
         m_seg_dpI.ResetBulkData(seg_cost, py, 1, st, end-st+1, es_errH, 1);
     }
 }
-void Segment_Grow::AssignDPSegment_V(UINT32 px, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx){
+void Segment_Grow::AssignDPSegment_V(CDataTempl<UINT32> &sem_bgI, CDataTempl<double> &fit_err, vector<UINT32> &seg_dpIdx, UINT32 px){
     // adding dp result to seed.
     for(UINT32 k=0; k<seg_dpIdx.size()-1; k++){
         UINT32 st = seg_dpIdx[k], end=seg_dpIdx[k+1];
-        UINT32 lut_idx = _CLIP(UINT32((end-st+1)*m_seed_bic_scale), 0, 99);
-        double seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
+        double seg_cost = 1e3;
+        if (sem_bgI.GetData(end, px) == 0){
+            int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
+            seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
+        }
         
         m_seg_dpI.ResetBulkData(st, st, end-st+1, px, 1, es_stV, 1);
         m_seg_dpI.ResetBulkData(end, st, end-st+1, px, 1, es_endV, 1);
         m_seg_dpI.ResetBulkData(seg_cost, st, end-st+1, px, 1, es_errV, 1);
     }
+}
+
+void Segment_Grow::SetupConfig(){
+
+    m_seed_bic_alpha = 1e-1;
+    m_seed_bic_scale = 2e-1;
+
+    m_rm_bic_alpha = 1;
+    m_rm_fit_cost_thr = 2e-2;
+    m_rm_fit_cost_penalty = 1e3;
+    m_rm_cost_thr = 0;
+    m_prop_size_thr = 40;
+
+    m_rm_bic_addi_len_oft=1;
 }
 
 

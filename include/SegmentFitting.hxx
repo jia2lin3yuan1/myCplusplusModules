@@ -79,8 +79,8 @@ void Segment_Fit::AssignY(CDataTempl<double> &matY, CDataTempl<UINT32> &matYsem,
         matYsem.GetColumn(m_Ysem, k);
     }
 
-    m_meanY0 = m_Y0.Mean();
-    m_meanY1 = m_Y1.Mean();
+    m_meanY0 = max(m_Y0.Mean(), 1e-6);
+    m_meanY1 = max(m_Y1.Mean(), 1e-6);
     
     m_iniIdxs.clear();
     m_dpIdxs.clear();
@@ -125,7 +125,7 @@ vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double mean
         }
 
         double err_sum = 2*w*b*m_lutX.GetData(tk, 1)+pow(b, 2)*(m_lutX.GetData(tk, 5)+1)+pow(w,2)*m_lutX.GetData(tk, 0) - 2*w*acc_xy[tk]-2*b*acc_y[tk] + acc_y_2[tk];
-        err_sum    = err_sum>0? err_sum : -err_sum;
+        err_sum    = err_sum>=0? err_sum : -err_sum;
         fit_err[k] = err_sum/min(max(acc_y[tk], 1e-9), meanY*(m_lutX.GetData(tk, 5)+1));
     }
 
@@ -135,7 +135,7 @@ vector<double> Segment_Fit::FittingStartPoint(CDataTempl<double> &Y, double mean
 // compute fitting error for each combination of start and end point. 
 void Segment_Fit::FittingFeasibleSolution(CDataTempl<double> &fit_err){
    UINT32 len = m_iniIdxs.size();
-   for(UINT32 k = 0; k < len; k ++){
+   for(UINT32 k = 0; k < len-1; k ++){
        vector<double> fit_err_0 = FittingStartPoint(m_Y0, m_meanY0, k);
        vector<double> fit_err_1 = FittingStartPoint(m_Y1, m_meanY1, k);
        for(UINT32 j=k+1; j < len; j++){

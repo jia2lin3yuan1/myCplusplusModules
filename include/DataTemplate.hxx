@@ -69,7 +69,7 @@ public:
     UINT32 GetYDim() const;
     UINT32 GetZDim() const;
     BT GetDataByIdx(UINT32 k) const;
-    UINT32 Coordinate2Index(UINT32 y, UINT32 x, UINT32 z) const;
+    UINT32 Coordinate2Index(UINT32 y, UINT32 x=0, UINT32 z=0) const;
     
     void SetData(BT val, UINT32 y, UINT32 x=0, UINT32 z=0);
     void SetDataByIdx(BT val, UINT32 k);

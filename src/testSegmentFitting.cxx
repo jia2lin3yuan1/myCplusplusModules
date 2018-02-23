@@ -12,10 +12,10 @@ void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32
 }
 
 void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
+    std::cout<< " *** Line "<<line<<" :"<<std::endl; 
     
     segFit.AssignY(distM, bgSem, line, isRow);
     segFit.find_keypoints();
-
     vector<UINT32> iniIdxs = segFit.GetIniIdxs();
     for(int k =0; k<iniIdxs.size(); k++){
         std::cout<<iniIdxs[k]<<", ";
@@ -26,7 +26,6 @@ void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl
     CDataTempl<double> fit_err(iniIdxs.size(), iniIdxs.size());
     segFit.FittingFeasibleSolution(fit_err);
     segFit.DP_segments(fit_err);
-    
     vector<UINT32> dpIdxs = segFit.GetdpIdxs();
     for(int k=0; k<dpIdxs.size(); k++){
         std::cout<<dpIdxs[k]<<", ";
@@ -41,9 +40,11 @@ void testSegmentFitting(std::string fpath, UINT32 imgHt, UINT32 imgWd){
 
     Segment_Fit segFit_H(imgWd);
     testOneDirection(segFit_H, distM, bgSem, 251, true);
+    testOneDirection(segFit_H, distM, bgSem, 252, true);
     
     Segment_Fit segFit_V(imgHt);
     testOneDirection(segFit_V, distM, bgSem, 100, false);
+    testOneDirection(segFit_V, distM, bgSem, 101, false);
 }
 
 
