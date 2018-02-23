@@ -3,34 +3,49 @@
 #include <iostream>
 int main()
 {
-    float data[500][373];
+    // read
+    float data[500][375];
     std::ifstream file("dist0.csv");
 
+    std::string line;
     for(int row = 0; row < 500; ++row)
     {
-        std::string line;
         std::getline(file, line);
         if ( !file.good() )
             break;
 
         std::stringstream iss(line);
 
-        for (int col = 0; col < 373; ++col)
+        std::string val;
+        for (int col = 0; col < 375; ++col)
         {
-            std::string val;
             std::getline(iss, val, ',');
-            if ( !iss.good() )
-                break;
+            //if ( !iss.good() )
+            //    break;
 
             std::stringstream convertor(val);
             convertor >> data[row][col];
 
-            if(row == 251){
-                std::cout<<data[row][col]<<", ";
+            
+            if(row == 400){
+                std::cout<<col<<'-'<<data[row][col]<<", ";
             }
         }
     }
-
     std::cout<<std::endl;
+    file.close();
+
+    // write.
+    std::ofstream outfile("dist0_r.csv");
+    for(int row = 0; row < 500; ++row){
+        outfile<<data[row][0];
+        for (int col = 1; col < 375; ++col){
+            outfile<<","<<data[row][col];
+        }
+        outfile<<std::endl;
+    }
+
+    outfile.close();
+
     return 0;
 }
