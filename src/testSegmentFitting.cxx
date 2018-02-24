@@ -15,7 +15,7 @@ void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl
     std::cout<< " *** Line "<<line<<" :"<<std::endl; 
     
     segFit.AssignY(distM, bgSem, line, isRow);
-    segFit.find_keypoints();
+    segFit.FindKeyPoints();
     vector<UINT32> iniIdxs = segFit.GetIniIdxs();
     for(int k =0; k<iniIdxs.size(); k++){
         std::cout<<iniIdxs[k]<<", ";
@@ -41,7 +41,8 @@ void testSegmentFitting(std::string fpath, UINT32 imgHt, UINT32 imgWd){
     Segment_Fit segFit_H(imgWd);
     testOneDirection(segFit_H, distM, bgSem, 251, true);
     testOneDirection(segFit_H, distM, bgSem, 252, true);
-    
+   
+    std::cout<<std::endl<<"********** Test Vertical: "<<std::endl;
     Segment_Fit segFit_V(imgHt);
     testOneDirection(segFit_V, distM, bgSem, 100, false);
     testOneDirection(segFit_V, distM, bgSem, 101, false);

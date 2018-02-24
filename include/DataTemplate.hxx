@@ -8,10 +8,11 @@
 #include "PlatformDefs.hxx"
 
 template <typename BT>
-class CDataTempl{
+class CDataTempl{ // 2D matrix.
 protected:
-    BT *m_pBuf=NULL; // The data is arraged as: [x0y0z0, x1y0z0, ...,xNy0z0, x0y1,z0, x1y1z0, ..., xNy1z0,........., XNYMz0, 
-                //                          x0y0z1, x1y0z1, ..., ....]
+    BT   *m_pBuf = NULL; // The data is arraged as: [[[z0y0x0, z0y0x1, ...,z0y0x_n], [z0y1x0, z0y1x1, ..., z0y1x_n],.....[...., z0y_mx_n]]
+                         //                          [[z1y0x0, z1y0x1, ...,z1y0x_n], [z1y1x0, z1y1x1, ..., z1y1x_n],.....[...., z1y_mx_n]]
+                         //                          [[...........................]..[............................]......[..............]] ]
     UINT32 m_xDim, m_yDim, m_zDim, m_size;
 
     void AllocateBuf(){
@@ -28,21 +29,19 @@ protected:
 
 public:
     CDataTempl(){
-        m_xDim = m_yDim = m_zDim = 0;
-        m_size = m_xDim*m_yDim*m_zDim;
-        m_pBuf = NULL;
+        m_xDim = m_yDim = m_zDim = m_size = 0;
     }
     CDataTempl(UINT32 dy, UINT32 dx=1, UINT32 dz=1){
         this->Init(dy, dx, dz);
     }
     ~CDataTempl(){
         Destroy();
-        m_xDim = m_yDim = m_zDim = 0;
+        m_xDim = m_yDim = m_zDim = m_size = 0;
     }
 
     void Init(UINT32 dy, UINT32 dx=1, UINT32 dz=1){
-        m_size = dx*dy*dz;
         m_xDim = dx; m_yDim = dy; m_zDim = dz;
+        m_size = m_xDim*m_yDim*m_zDim;
         this->AllocateBuf();
     }
 
@@ -52,104 +51,212 @@ public:
         return *this;
     }
 
-    CDataTempl<BT> operator+(CDataTempl<BT> &data){
-        assert(m_xDim==data.GetXDim() && m_yDim==data.GetYDim() && m_zDim==data.GetZDim());
-        CDataTempl<BT> outData(m_yDim, m_xDim, m_zDim);
-        for(UINT32 k=0; k<m_size; k++){
-            BT val = this->GetDataByIdx(k) + data.GetDataByIdx(k);
-            outData.SetDataByIdx(val, k);
-        }
-
-        return outData;
-    }
-
 
     // inline function.
     UINT32 GetXDim() const;
     UINT32 GetYDim() const;
     UINT32 GetZDim() const;
-    BT GetDataByIdx(UINT32 k) const;
+    UINT32 GetSize() const;
     UINT32 Coordinate2Index(UINT32 y, UINT32 x=0, UINT32 z=0) const;
     
     void SetData(BT val, UINT32 y, UINT32 x=0, UINT32 z=0);
     void SetDataByIdx(BT val, UINT32 k);
-
-    // normal member functions.
-    BT GetData(SINT32 y, SINT32 x=0, SINT32 z=0);
-    void GetBulkData(BT data[], UINT32 sy, UINT32 dy, UINT32 sx=0, UINT32 dx=0, UINT32 sz=0, UINT32 dz=0);
-    
     void Copy(CDataTempl<BT> &data);
-    void Assign(std::vector<BT> &data_vec);
-    void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
-    void Reset(BT initVal);
+    void AssignFromVector(std::vector<BT> &dataV);
+    void Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
+    void Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
+    void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs =1);
+    void Reset(BT val);
     
+    // normal member functions.
+    BT GetData(SINT32 y, SINT32 x=0, SINT32 zs=0) const;
+    BT GetDataByIdx(UINT32 k) const;
+    void GetBulkData(std::vector<BT> &pixV, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
     void GetRow(CDataTempl<BT> &row, UINT32 y, UINT32 z=0);
     void GetColumn(CDataTempl<BT> &col, UINT32 x, UINT32 z=0);
 
     // math on CDataTemplate.
-    BT Mean();
+    double Mean();
+    double BulkMean(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
     BT Max();
     BT BulkMax(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
-    void Minimum(CDataTempl<BT> &data0, CDataTempl<BT> &data1);
-    BT BulkMean(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
 
-    // serve for SegmentGrow.
-    void FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV=1);
-    UINT32 FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end,  UINT32 step=1);
-    UINT32 ReplaceByValue(BT srcV, BT dstV);
-    void ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val);
+    // serve for SegmentGrow, only work when m_zDim=1
+    void FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV);
+    UINT32 FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end, UINT32 step=1);
+    UINT32 ReplaceByValue(BT src, BT dst);
+    void ModifyMaskOnNonZeros(const CDataTempl<BT> &matA, BT val);
 };
-
-
+    // inline function.
 template <typename BT>
-UINT32 CDataTempl<BT>::ReplaceByValue(BT srcV, BT dstV){
-    UINT32 cnt = 0;
-    for(UINT32 k=0; k < m_size; k++){
-        if(m_pBuf[k] == srcV){
-            cnt += 1;
-            m_pBuf[k] = dstV;
-        }
-    }
-    return cnt;
+UINT32 CDataTempl<BT>::GetXDim() const {return m_xDim;}
+template <typename BT>
+UINT32 CDataTempl<BT>::GetYDim() const {return m_yDim;}
+template <typename BT>
+UINT32 CDataTempl<BT>::GetZDim() const {return m_zDim;}
+template <typename BT>
+UINT32 CDataTempl<BT>::GetSize() const {return m_size;}
+template <typename BT>
+UINT32 CDataTempl<BT>::Coordinate2Index(UINT32 y, UINT32 x, UINT32 z) const {return (z*m_yDim+y)*m_xDim + x;}
+
+// modify data.
+template <typename BT>
+void CDataTempl<BT>::SetData(BT val, UINT32 y, UINT32 x, UINT32 z){
+    assert(y>=0 && y<m_yDim && x>=0 && x<m_xDim && z>=0 && z<m_zDim);
+    m_pBuf[this->Coordinate2Index(y,x, z)] = val;
+}
+template <typename BT>
+void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
+    assert(k>=0 && k<m_size);
+    m_pBuf[k] = val;
 }
 
 template <typename BT>
-void CDataTempl<BT>::ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val){
-    assert(m_xDim==matA.GetXDim() && m_yDim==matA.GetYDim() && m_zDim==matA.GetZDim());
-    for(UINT32 k=0; k < m_size; k++){
-        if(m_pBuf[k] != 0){
-            matA.SetDataByIdx(val, k);
-        }
+void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
+    assert(m_xDim==data.GetXDim() && m_yDim==data.GetYDim() && m_zDim==data.GetZDim());
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = data.GetDataByIdx(k);
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::AssignFromVector(std::vector<BT> &dataV){
+    assert(m_size == dataV.size());
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = dataV[k];
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1){
+    assert(data0.GetXDim()==data1.GetXDim() && data0.GetYDim()==data1.GetYDim() && data0.GetZDim()==data1.GetZDim());
+    assert(m_xDim==data1.GetXDim() && m_yDim==data1.GetYDim() && m_zDim==data1.GetZDim());
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = min(data0.GetDataByIdx(k) + data1.GetDataByIdx(k));
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1){
+    assert(data0.GetXDim()==data1.GetXDim() && data0.GetYDim()==data1.GetYDim() && data0.GetZDim()==data1.GetZDim());
+    assert(m_xDim==data1.GetXDim() && m_yDim==data1.GetYDim() && m_zDim==data1.GetZDim());
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = data0.GetDataByIdx(k) + data1.GetDataByIdx(k);
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
+    UINT32 y1 = y0 + ys;
+    UINT32 x1 = x0 + xs;
+    UINT32 z1 = y0 + zs;
+    for(UINT32 z=z0; z<z1; z++)    
+        for(UINT32 y=y0; y<y1; y++)    
+            for(UINT32 x=x0; x<x1; x++)
+                this->SetData(val, y, x, z);
+}
+template <typename BT>
+void CDataTempl<BT>::Reset(BT val){
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = val;
+    }
+}
+    
+    
+    // normal member functions.
+template <typename BT>
+BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z) const {
+    y = y<0? 0 : (y> m_yDim-1? m_yDim-1 : y);
+    x = x<0? 0 : (x> m_xDim-1? m_xDim-1 : x);
+    z = z<0? 0 : (z> m_zDim-1? m_zDim-1 : z);
+    return m_pBuf[this->Coordinate2Index(y,x,z)];
+}
+template <typename BT>
+BT CDataTempl<BT>::GetDataByIdx(UINT32 k) const{ 
+    // assert(k>=0 && k< m_size);    
+    return m_pBuf[k];
+}
+template <typename BT>
+void CDataTempl<BT>::GetBulkData(std::vector<BT> &pixV, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
+    // pass
+}
+template <typename BT>
+void CDataTempl<BT>::GetRow(CDataTempl<BT> &row, UINT32 y, UINT32 z){
+    assert(row.GetSize() == m_xDim);
+    UINT32 idx = ((z*m_yDim) + y)*m_xDim + 0;
+    for(UINT32 k =0; k < m_xDim; k ++){
+        row.SetData(m_pBuf[idx], k);
+        idx += 1;
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::GetColumn(CDataTempl<BT> &col, UINT32 x, UINT32 z){
+    assert(col.GetSize() == m_yDim);
+    UINT32 idx = ((z*m_yDim) + 0)*m_xDim + x;
+    for(UINT32 k =0; k < m_yDim; k ++){
+        col.SetData(m_pBuf[idx], k);
+        idx += m_xDim;
     }
 }
 
+// math on CDataTemplate.
+template <typename BT>
+double CDataTempl<BT>::Mean(){
+    return this->BulkMean(0, m_yDim, 0, m_xDim, 0, m_zDim);
+}
+template <typename BT>
+double CDataTempl<BT>::BulkMean(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
+    UINT32 size = zs*ys*xs;
+    assert(size>0);
+    UINT32 y1 = y0 + ys;
+    UINT32 x1 = x0 + xs;
+    UINT32 z1 = y0 + zs;
+
+    BT sumV = this->GetData(y0, x0, z0);
+    for(UINT32 z=z0; z<z1; z++)
+        for(UINT32 y=y0; y<y1; y++)
+            for(UINT32 x=x0; x<x1; x++)
+                sumV += this->GetData(y,x,z);
+    return double(sumV)/double(size);
+}
+template <typename BT>
+BT CDataTempl<BT>::Max(){
+    return this->BulkMax(0, m_yDim, 0, m_xDim, 0, m_zDim);
+}
+template <typename BT>
+BT CDataTempl<BT>::BulkMax(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
+    UINT32 y1 = y0 + ys;
+    UINT32 x1 = x0 + xs;
+    UINT32 z1 = y0 + zs;
+    
+    BT maxV = this->GetData(y0, x0, z0);
+    for(UINT32 z=z0; z<z1; z++)
+        for(UINT32 y=y0; y<y1; y++)
+            for(UINT32 x=x0; x<x1; x++)
+                maxV = maxV < this->GetData(y,x,z)? this->GetData(y,x,z) : maxV;
+    return maxV;
+}
+
+// serve for SegmentGrow.
 template <typename BT>
 void CDataTempl<BT>::FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV){
+    assert(m_zDim==1);
     CDataTempl<BT> visitedMask(m_yDim, m_xDim, m_zDim); 
-    std::stack<std::pair<UINT32, UINT32> > ptStack;
+    
     // left to right, up to down, find first fg pixel.
-    bool findFG = false;
-    for(UINT32 y=0; y<m_yDim; y++){
-        for(UINT32 x=0; x< m_xDim; x++){
-            if(this->GetData(y,x)==fgV){
-                ptStack.push(std::make_pair(y, x));
-                visitedMask.SetData(1, y, x);
-                findFG = true;
-                break;
-            }
-        }
-        if(findFG)
+    std::stack<std::pair<UINT32, UINT32> > ptStack;
+    for(UINT32 k=0; k < m_size; k++){
+        if(this->GetDataByIdx(k) == fgV){
+            visitedMask.SetDataByIdx(1, k);
+            ptStack.push(std::make_pair(k/m_xDim, k%m_xDim));
             break;
+        }
     }
 
     // find all bd pixels along boundary.
-    UINT32 y, x, cnt;
+    UINT32 y=0, x=0, cnt=0;
     UINT32 nei[18];
     while(!ptStack.empty()){
         y   = ptStack.top().first;
         x   = ptStack.top().second;
         ptStack.pop();
-        cnt = 0;
+        cnt  = 0;
         for(SINT32 sy=-1; sy<=1; sy++){
             if(y+sy <0 || y+sy >= m_yDim)
                 continue;
@@ -176,6 +283,8 @@ void CDataTempl<BT>::FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > 
     }
 }
 
+
+
 template <typename BT>
 UINT32 CDataTempl<BT>::FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end, UINT32 step){
     assert(m_zDim == 1);
@@ -197,159 +306,33 @@ UINT32 CDataTempl<BT>::FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT
         }
         cnt += 1;
     }
-
-    return step>1? py+cnt : px+cnt;
-}
-
-
-template <typename BT>
-inline UINT32 CDataTempl<BT>::GetXDim() const {return m_xDim;}
-template <typename BT>
-inline UINT32 CDataTempl<BT>::GetYDim() const {return m_yDim;}
-template <typename BT>
-inline UINT32 CDataTempl<BT>::GetZDim() const {return m_zDim;}
-template <typename BT>
-inline BT CDataTempl<BT>::GetDataByIdx(UINT32 k) const{
-    k = _CLIP(k, 0, m_xDim*m_yDim*m_zDim-1);
-    return m_pBuf[k];
-}
-template <typename BT>
-inline UINT32 CDataTempl<BT>::Coordinate2Index(UINT32 y, UINT32 x, UINT32 z) const {
-    return (z*m_yDim + y)*m_xDim + x;
 }
 
 template <typename BT>
-inline void CDataTempl<BT>::SetData(BT val, UINT32 y, UINT32 x, UINT32 z){
-    m_pBuf[this->Coordinate2Index(y,x,z)] = val;
-}
-template <typename BT>
-inline void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
-    m_pBuf[k] = val;
-}
-
-
-// normal member functions.
-template <typename BT>
-BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z){
-    x = x < 0? 0 : x > m_xDim-1? m_xDim-1 : x;
-    y = y < 0? 0 : y > m_yDim-1? m_yDim-1 : y;
-    z = z < 0? 0 : z > m_zDim-1? m_zDim-1 : z;
-    
-    return m_pBuf[this->Coordinate2Index(y,x,z)];
-}
-
-template <typename BT>
-void CDataTempl<BT>::GetBulkData(BT data[], UINT32 sy, UINT32 dy, UINT32 sx, UINT32 dx, UINT32 sz, UINT32 dz){
-   // todo:: 
-}
-
-template <typename BT>
-void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
-    assert(m_xDim==data.GetXDim() && m_yDim==data.GetYDim() && m_zDim==data.GetZDim());
+UINT32 CDataTempl<BT>::ReplaceByValue(BT src, BT dst){
+    assert(m_zDim == 1);
+    UINT32 cnt = 0;
     for(UINT32 k=0; k < m_size; k++){
-        m_pBuf[k] = data.GetDataByIdx(k);
-    }
-}
-
-template <typename BT>
-void CDataTempl<BT>::Assign(std::vector<BT> &data_vec){
-    assert(m_size == data_vec.size());
-    for(UINT32 k=0; k<m_size; k++){
-        m_pBuf[k] = data_vec[k];
-    }
-}
-
-template <typename BT>
-void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
-    assert(xs>0 && ys>0 && zs>0);
-    UINT32 z1 = z0+zs, y1 = y0+ys, x1 = x0+xs;
-    for(UINT32 z=z0; z<z1; z++)
-        for(UINT32 y=y0; y<y1; y++)
-            for(UINT32 x=x0; x<x1; x++)
-                this->SetData(val, y,x,z);
-}
-
-template <typename BT>
-void CDataTempl<BT>::Reset(BT initVal){
-    for(UINT32 k=0; k<m_size; k++)
-        m_pBuf[k] = initVal;
-}
-
-template <typename BT>
-void CDataTempl<BT>::GetRow(CDataTempl<BT> &row, UINT32 y, UINT32 z){
-    UINT32 idx = ((z*m_yDim) + y)*m_xDim;
-    for(UINT32 k =0; k < m_xDim; k ++){
-        row.SetData(m_pBuf[idx], k);
-        idx += 1;
-    }
-}
-
-template <typename BT>
-void CDataTempl<BT>::GetColumn(CDataTempl<BT> &col, UINT32 x, UINT32 z){
-    UINT32 idx = z*m_yDim*m_xDim + x;
-    for(UINT32 k =0; k < m_yDim; k ++){
-        col.SetData(m_pBuf[idx], k);
-        idx += m_xDim;
-    }
-}
-
-
-// math on CDataTemplate.
-template <typename BT>
-BT CDataTempl<BT>::Mean(){
-    return this->BulkMean(0, m_yDim, 0, m_xDim, 0, m_zDim);
-}
-
-template <typename BT>
-BT CDataTempl<BT>::Max(){
-    return BulkMax(0, m_yDim, 0, m_xDim, 0, m_zDim);
-}
-
-template <typename BT>
-BT CDataTempl<BT>::BulkMax(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
-    assert(xs>0 && ys>0 && zs>0);
-    UINT32 z1 = z0+zs, y1 = y0+ys, x1 = x0+xs;
-    
-    BT maxV = this->GetData(y0, x0, z0);
-    for(UINT32 z=z0; z<z1; z++){
-        for(UINT32 y=y0; y<y1; y++){
-            for(UINT32 x=x0; x<x1; x++){
-                maxV = maxV < this->GetData(y,x,z)? this->GetData(y,x,z):maxV;
-            }
+        if(m_pBuf[k] == src){
+            cnt += 1;
+            m_pBuf[k] = dst;
         }
     }
-    return maxV;
+    return cnt;
 }
-
 template <typename BT>
-void CDataTempl<BT>::Minimum(CDataTempl<BT> &data0, CDataTempl<BT> &data1){
-    assert(data0.GetXDim()==data1.GetXDim() && data0.GetYDim()==data1.GetYDim() && data0.GetZDim()==data1.GetZDim());
-    assert(m_xDim==data1.GetXDim() && m_yDim==data1.GetYDim() && data0.GetZDim()==data1.GetZDim());
-    for(UINT32 k=0; k<m_size; k++){
-        m_pBuf[k] = std::min(data0.GetDataByIdx(k), data1.GetDataByIdx(k));
-    }
-}
-
-template <typename BT>
-BT CDataTempl<BT>::BulkMean(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
-    assert(xs>0 && ys>0 && zs>0);
-    UINT32 z1 = z0+zs, y1 = y0+ys, x1 = x0+xs;
-    
-    double frac_x = 1.0/double(xs), frac_y = 1.0/double(ys), frac_z = 1.0/double(zs);
-    double sum = 0;
-    for(UINT32 z=z0; z<z1; z++){
-        double sum1 = 0;
-        for(UINT32 y=y0; y<y1; y++){
-            double sum2 = 0;
-            for(UINT32 x=x0; x<x1; x++){
-                sum2 += this->GetData(y, x, z);
-            }
-            sum1 += sum2*frac_x;
+void CDataTempl<BT>::ModifyMaskOnNonZeros(const CDataTempl<BT> &matA, BT val){
+    assert(m_zDim == 1);
+    assert(m_xDim==matA.GetXDim() && m_yDim==matA.GetYDim() && m_zDim==matA.GetZDim());
+    for(UINT32 k=0; k < m_size; k++){
+        if(m_pBuf[k] != 0){
+            matA.SetDataByIdx(val, k);
         }
-        sum += sum1*frac_y;
     }
-    return BT(sum*frac_z);
 }
+
+/*
+ */
 
 
 #endif

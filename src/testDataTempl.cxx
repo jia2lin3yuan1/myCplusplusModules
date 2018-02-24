@@ -4,7 +4,7 @@ void testDataAccess(){
    
     std::vector<int> arr(12, 5);
     CDataTempl<int> myData(3,4);
-    myData.Assign(arr);// output 5, 5, 5
+    myData.AssignFromVector(arr);// output 5, 5, 5
     std::cout << "value is: "<<myData.GetData(-1,1) << ", "<<myData.GetDataByIdx(9)<<", "<< myData.GetData(5,-2) << std::endl;
     std::cout<<"GT: 5,5,5"<<std::endl;
     
@@ -12,7 +12,7 @@ void testDataAccess(){
         arr[k] = k;
     }
     
-    myData.Assign(arr);// output:: 1, 9, 8
+    myData.AssignFromVector(arr);// output:: 1, 9, 8
     std::cout << "value is: "<<myData.GetData(-1,1) << ", "<<myData.GetDataByIdx(9)<<", "<< myData.GetData(5,-2) << std::endl;
     std::cout<<"GT: 1,9,8"<<std::endl;
 
