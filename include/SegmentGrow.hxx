@@ -454,7 +454,7 @@ void Segment_Grow::AssignAllSegment(CDataTempl<double> &fit_err, vector<UINT32> 
         for(UINT32 k1=k0+1; k1<seg_iniIdx.size(); k1++){
             UINT32 st = seg_iniIdx[k0], end=seg_iniIdx[k1];
             string mkey = ConstructKey(line, st, end);
-            ref_map[mkey] = fit_err.GetData(st, end);
+            ref_map[mkey] = fit_err.GetData(k0, k1);
         }
     }
 }
@@ -466,7 +466,7 @@ void Segment_Grow::AssignDPSegment_H(CDataTempl<UINT32> &sem_bgI, CDataTempl<dou
         double seg_cost = 1e3;
         if (sem_bgI.GetData(py, st+1) == 0){
             int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
-            seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
+            seg_cost = fit_err.GetData(k, k+1) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
             m_segSeedsQ.push(seg_cost, py, st, end);
         }
 
@@ -482,7 +482,7 @@ void Segment_Grow::AssignDPSegment_V(CDataTempl<UINT32> &sem_bgI, CDataTempl<dou
         double seg_cost = 1e3;
         if (sem_bgI.GetData(st+1, px) == 0){
             int lut_idx = int(_CLIP(int((end-st+1)*m_seed_bic_scale), 0, 99));
-            seg_cost = fit_err.GetData(st,end) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
+            seg_cost = fit_err.GetData(k, k+1) + m_seed_bic_alpha*glb_BIC_LUT[lut_idx];
         }
         
         m_seg_dpI.ResetBulkData(st, st, end-st+1, px, 1, es_stV, 1);

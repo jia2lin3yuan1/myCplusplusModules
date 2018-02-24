@@ -85,7 +85,7 @@ public:
     void FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV);
     UINT32 FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end, UINT32 step=1);
     UINT32 ReplaceByValue(BT src, BT dst);
-    void ModifyMaskOnNonZeros(const CDataTempl<BT> &matA, BT val);
+    void ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val);
 };
     // inline function.
 template <typename BT>
@@ -321,7 +321,7 @@ UINT32 CDataTempl<BT>::ReplaceByValue(BT src, BT dst){
     return cnt;
 }
 template <typename BT>
-void CDataTempl<BT>::ModifyMaskOnNonZeros(const CDataTempl<BT> &matA, BT val){
+void CDataTempl<BT>::ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val){
     assert(m_zDim == 1);
     assert(m_xDim==matA.GetXDim() && m_yDim==matA.GetYDim() && m_zDim==matA.GetZDim());
     for(UINT32 k=0; k < m_size; k++){

@@ -7,7 +7,7 @@
 void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Grow &segGrow,  CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
     // First, find the best partition of a line into several small segments. 
     segFit.AssignY(distM, bgSem, line, isRow);
-    segFit.find_keypoints();
+    segFit.FindKeyPoints();
     vector<UINT32> iniIdxs = segFit.GetIniIdxs();
     
     CDataTempl<double> fit_err(iniIdxs.size(), iniIdxs.size());
