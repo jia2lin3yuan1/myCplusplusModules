@@ -1,6 +1,6 @@
 
 #include "ProposalGenerate.hxx"
-#include "read_write_img.cxx"
+#include "utils/read_write_img.hxx"
 
 /*
  * Before test this case, pass the test of segment fitting first.

@@ -1,6 +1,6 @@
 
 #include "SegmentFitting.hxx"
-#include "read_write_img.cxx"
+#include "utils/read_write_img.hxx"
 
 void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
@@ -38,12 +38,13 @@ void testSegmentFitting(std::string fpath, UINT32 imgHt, UINT32 imgWd){
     CDataTempl<UINT32> bgSem(imgHt, imgWd);
     PrepareData(fpath, distM, bgSem);
 
-    Segment_Fit segFit_H(imgWd);
+    GlbParam glbParam;
+    Segment_Fit segFit_H(imgWd, &glbParam);
     testOneDirection(segFit_H, distM, bgSem, 251, true);
     testOneDirection(segFit_H, distM, bgSem, 252, true);
    
     std::cout<<std::endl<<"********** Test Vertical: "<<std::endl;
-    Segment_Fit segFit_V(imgHt);
+    Segment_Fit segFit_V(imgHt, &glbParam);
     testOneDirection(segFit_V, distM, bgSem, 100, false);
     testOneDirection(segFit_V, distM, bgSem, 101, false);
 }

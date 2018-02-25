@@ -145,7 +145,7 @@ template <typename BT>
 void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
     UINT32 y1 = y0 + ys;
     UINT32 x1 = x0 + xs;
-    UINT32 z1 = y0 + zs;
+    UINT32 z1 = z0 + zs;
     for(UINT32 z=z0; z<z1; z++)    
         for(UINT32 y=y0; y<y1; y++)    
             for(UINT32 x=x0; x<x1; x++)
@@ -206,7 +206,7 @@ double CDataTempl<BT>::BulkMean(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT
     assert(size>0);
     UINT32 y1 = y0 + ys;
     UINT32 x1 = x0 + xs;
-    UINT32 z1 = y0 + zs;
+    UINT32 z1 = z0 + zs;
 
     BT sumV = this->GetData(y0, x0, z0);
     for(UINT32 z=z0; z<z1; z++)
@@ -289,23 +289,21 @@ template <typename BT>
 UINT32 CDataTempl<BT>::FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end, UINT32 step){
     assert(m_zDim == 1);
     UINT32 idx = this->Coordinate2Index(py, px);
-    UINT32 idx_st  = step>1? this->Coordinate2Index(st, px) : this->Coordinate2Index(py, st); 
-    UINT32 idx_end = step>1? this->Coordinate2Index(end, px) : this->Coordinate2Index(py, end); 
-    SINT32 cnt = 0;
-    if(m_pBuf[idx+step] > 0){
-        while(idx <= idx_end && m_pBuf[idx] > 0){
-            cnt += 1;
-            idx += step;
-        }
-        cnt -= 1;
+   
+    UINT32 ptK = step == 1? px : py;
+    if(ptK >0 && m_pBuf[idx-step]>0){
+        while(ptK > st && m_pBuf[idx-step]>0){
+            ptK -= 1;
+            idx -= step;
+        } 
     }
     else{
-        while(idx >= idx_st && m_pBuf[idx] > 0){
-            cnt -= 1;
-            idx -= step;
+        while(ptK < end-1 && m_pBuf[idx+step] > 0){
+            ptK += 1;
+            idx += step;
         }
-        cnt += 1;
     }
+    return ptK;
 }
 
 template <typename BT>

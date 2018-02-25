@@ -2,7 +2,7 @@
 #define SEGMENT_GROW_HXX
 
 #include "SegmentFitting.hxx"
-#include "utils/read_write_img.hxx"
+#include "read_write_img.hxx"
 
 using namespace std;
 

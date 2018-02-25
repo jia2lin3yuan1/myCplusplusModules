@@ -1,3 +1,7 @@
+#ifndef _READ_WRITE_IMG_HXX
+#define _READ_WRITE_IMG_HXX
+
+
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -59,4 +63,4 @@ void WriteToCSV(CDataTempl<DT> &img, std::string fpath, int imgCh=0){
 
     outfile.close();
 }
-
+ #endif

@@ -1,8 +1,8 @@
 #ifndef SEGMENT_FITTING_HXX
 #define SEGMENT_FITTING_HXX
 
-#include "utils/DataTemplate.hxx"
-#include "utils/LogLUT.hxx"
+#include "DataTemplate.hxx"
+#include "LogLUT.hxx"
 using namespace std;
 
 /*
