@@ -2,7 +2,7 @@
 #include "SegmentFitting.hxx"
 #include "utils/read_write_img.hxx"
 
-void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem){
+void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
     ReadFromCSV(distM, fpath+"dist1.csv", 1);
     ReadFromCSV(distM, fpath+"dist2.csv", 2);
@@ -11,7 +11,7 @@ void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32
     ReadFromCSV(bgSem, fpath+"sem.csv");
 }
 
-void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
+void testOneDirection(Segment_Fit &segFit, CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
     std::cout<< " *** Line "<<line<<" :"<<std::endl; 
     
     segFit.AssignY(distM, bgSem, line, isRow);
@@ -23,7 +23,7 @@ void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl
     std::cout<<std::endl<<"   ^^^  this is the initial indexes."<<std::endl;
 
 
-    CDataTempl<double> fit_err(iniIdxs.size(), iniIdxs.size());
+    CDataTempl<float> fit_err(iniIdxs.size(), iniIdxs.size());
     segFit.FittingFeasibleSolution(fit_err);
     segFit.DP_segments(fit_err);
     vector<UINT32> dpIdxs = segFit.GetdpIdxs();
@@ -34,7 +34,7 @@ void testOneDirection(Segment_Fit &segFit, CDataTempl<double> &distM, CDataTempl
 }
 
 void testSegmentFitting(std::string fpath, UINT32 imgHt, UINT32 imgWd){
-    CDataTempl<double> distM(imgHt, imgWd, 4);
+    CDataTempl<float> distM(imgHt, imgWd, 4);
     CDataTempl<UINT32> bgSem(imgHt, imgWd);
     PrepareData(fpath, distM, bgSem);
 
@@ -53,7 +53,7 @@ void testSegmentFitting(std::string fpath, UINT32 imgHt, UINT32 imgWd){
 int main(){
     UINT32 imgHt = 500;
     UINT32 imgWd = 375;
-    std::string fpath = "./data_segment/"; 
+    std::string fpath = "./input/"; 
    
     testSegmentFitting(fpath, imgHt, imgWd);
     

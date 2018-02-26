@@ -36,11 +36,11 @@ typedef struct Global_Parameters{
     float segFit_inf_err;
 
     // segment growing paramters.
-    float segGrow_seed_bic_alpha;
-    float segGrow_seed_bic_scale;
+    float  segGrow_seed_bic_alpha;
+    float  segGrow_seed_bic_scale;
     UINT32 segGrow_seed_size_thr;
 
-    float segGrow_shrk_bic_alpha;
+    float  segGrow_shrk_bic_alpha;
     UINT32 segGrow_shrk_bic_addi_len;
     float segGrow_shrk_fit_cost_thr;
     float segGrow_shrk_fit_cost_penalty;
@@ -49,6 +49,9 @@ typedef struct Global_Parameters{
     UINT32 segGrow_proposal_size_thr;
 
     // segment merge.
+    float  merge_supix_bic_alpha;
+    UINT32 merge_supix_bic_addi_len;
+    float  merge_merger_thr;
     
     Global_Parameters(){
         // segment fitting parameters.
@@ -67,9 +70,12 @@ typedef struct Global_Parameters{
         segGrow_shrk_fit_cost_penalty = 1e3;
         segGrow_shrk_cost_thr      = 0;
 
-        UINT32 segGrow_proposal_size_thr = 40;
+        segGrow_proposal_size_thr = 40;
 
         // segment merge.
+        merge_supix_bic_alpha    = 1;
+        merge_supix_bic_addi_len = 1;
+        merge_merger_thr         = 0;
     }
 
 }GlbParam;

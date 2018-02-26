@@ -8,7 +8,7 @@
  */
 
 
-void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem){
+void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
     ReadFromCSV(distM, fpath+"dist1.csv", 1);
     ReadFromCSV(distM, fpath+"dist2.csv", 2);
@@ -19,7 +19,7 @@ void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<UINT32
 
 
 void testSegmentGrow(std::string fpath, UINT32 imgHt, UINT32 imgWd){
-    CDataTempl<double> distM(imgHt, imgWd, 4);
+    CDataTempl<float> distM(imgHt, imgWd, 4);
     CDataTempl<UINT32> bgSem(imgHt, imgWd);
     PrepareData(fpath, distM, bgSem);
 

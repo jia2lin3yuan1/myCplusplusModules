@@ -4,13 +4,13 @@
 #include "SegmentFitting.hxx"
 #include "SegmentGrow.hxx"
 
-void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Grow &segGrow,  CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
+void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Grow &segGrow,  CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
     // First, find the best partition of a line into several small segments. 
     segFit.AssignY(distM, bgSem, line, isRow);
     segFit.FindKeyPoints();
     vector<UINT32> iniIdxs = segFit.GetIniIdxs();
     
-    CDataTempl<double> fit_err(iniIdxs.size(), iniIdxs.size());
+    CDataTempl<float> fit_err(iniIdxs.size(), iniIdxs.size());
     segFit.FittingFeasibleSolution(fit_err);
     
     segFit.DP_segments(fit_err);
@@ -24,7 +24,7 @@ void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Grow &segGrow,  CDataTem
 
 
 
-void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<UINT32> &bgSem, CDataTempl<UINT32> &maskI){
+void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, CDataTempl<UINT32> &maskI){
     
     UINT32 imgHt = distM.GetYDim();
     UINT32 imgWd = distM.GetXDim();
