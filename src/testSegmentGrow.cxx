@@ -25,7 +25,7 @@ void testSegmentGrow(std::string fpath, UINT32 imgHt, UINT32 imgWd){
 
     CDataTempl<UINT32> maskI;
     ProposalGenerate(distM, bgSem, maskI);
-    WriteToCSV(maskI, "test.csv");
+    WriteToCSV(maskI, "./output/test.csv");
     
 }
 

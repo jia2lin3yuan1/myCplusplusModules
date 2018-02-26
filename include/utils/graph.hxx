@@ -13,7 +13,7 @@ using namespace std;
  */
 
 class BndryPix{
-protected: 
+public: 
     // Pixel indices. pix1 should on upper/left side of pix2.
     UINT32 pix1;
     UINT32 pix2;
@@ -24,7 +24,8 @@ protected:
     
     // edge value between them.
     float edgeval;
-public:
+    
+    // Functions
     BndryPix(UINT32 p1=0, UINT32 p2=0, UINT32 s1=0, UINT32 s2=0, float bdV=0){
         pix1 = p1 < p2? p1 : p2;
         pix2 = p1 < p2? p2 : p1; 
@@ -42,7 +43,7 @@ public:
 
 
 class Edge{
-protected: 
+public: 
     // super pixels on edge's two side. sup1 <  sup2.
     UINT32   sup1;
     UINT32   sup2;
@@ -50,7 +51,8 @@ protected:
     // edge value
     float  edgeval;
     vector<UINT32> bd_pixs;
-public:
+    
+    // Functions
     Edge(UINT32 s1=0, UINT32 s2=0, float val=0){
         sup1 = s1 < s2? s1 : s2; 
         sup2 = s1 < s2? s2 : s1; 
@@ -67,7 +69,7 @@ public:
 
 // super pixel
 class  Supix{
-protected: 
+public: 
     // bbounding box
     UINT32 bbox[4]; 
 
@@ -76,7 +78,8 @@ protected:
 
     // adjacent superpixes and the edge between them. <nei_supix_id, edge_id>
     map<UINT32, UINT32> adjacents;
-public:
+    
+    // Functions
     Supix(){
         bbox[0] = UINT_MAX;
         bbox[1] = UINT_MAX;
@@ -86,12 +89,12 @@ public:
 };
 
 
-template<typename Node, typename Edge, typename Border>
+template<typename NODE, typename EDGE, typename BORDER>
 class Graph{
 protected:
-    map<UINT32, Border> m_borders;
-    map<UINT32, Edge>   m_edges;
-    map<UINT32, Node>   m_supixs;
+    map<UINT32, BORDER> m_borders;
+    map<UINT32, EDGE>   m_edges;
+    map<UINT32, NODE>   m_supixs;
 
     const CDataTempl<UINT32>  *m_pInLabelI;
     CDataTempl<UINT32>         m_outLabelI;
@@ -103,30 +106,30 @@ public:
         m_outLabelI.Init(ht, wd);
     }
 
-    // Create Graph.
+    // Label <-> Graph.
     void AssignInputLabel(const CDataTempl<UINT32> *pInput){
         assert(m_ht == pInput->GetYDim() && m_wd==pInput->GetXDim());
         m_pInLabelI = pInput;
     }
+    void AssignOutputLabel();
     void CreateGraphFromLabelI();
     
     // operators on graph
     void MergeSupixels(UINT32 sup0, UINT32 sup1);
+    void AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px);
+    
     void MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup);
     void UpdateEdge(UINT32 edge, UINT32 ori_sup, UINT32 new_sup);
     void RemoveEdge(UINT32 edge);
-
-    // 
-    void AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px);
-
+    
 
     // empty function as API.
-    void ComputeGraphWeights(){};
-    void ComputeEdgeWeights(UINT32 edge){};
+    virtual void ComputeGraphWeights() = 0;
+    virtual void ComputeEdgeWeights(UINT32 edge) = 0;
 };
 
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px){
     m_supixs[sup].pixs.push_back(pix_idx);
     m_supixs[sup].bbox[0] = min(px, m_supixs[sup].bbox[0]);
     m_supixs[sup].bbox[1] = min(py, m_supixs[sup].bbox[1]);
@@ -134,8 +137,8 @@ void Graph<Node, Edge, Border>::AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UIN
     m_supixs[sup].bbox[3] = max(py, m_supixs[sup].bbox[3]);
 }
 
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup){
     for(auto it = m_edges[edge1].bd_pixs.begin(); it != m_edges[edge1].bd_pixs.end(); it++){
         m_borders[*it].ModifySuperPixel(sup0, same_sup);
         m_edges[edge0].bd_pixs.push_back(*it);
@@ -144,8 +147,8 @@ void Graph<Node, Edge, Border>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 
 }
 
 // update super pixel id in edge, and the border pixels on it.
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::UpdateEdge(UINT32 edge, UINT32 new_sup, UINT32 ori_sup){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::UpdateEdge(UINT32 edge, UINT32 new_sup, UINT32 ori_sup){
     for(auto it = m_edges[edge].bd_pixs.begin(); it!=m_edges[edge].bd_pixs.end(); it++){
         m_borders[*it].ModifySuperPixel(new_sup, ori_sup);
     }
@@ -153,8 +156,8 @@ void Graph<Node, Edge, Border>::UpdateEdge(UINT32 edge, UINT32 new_sup, UINT32 o
 }
 
 // Remove edge and border pixels on it from the stock.
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::RemoveEdge(UINT32 edge){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::RemoveEdge(UINT32 edge){
     for(auto it=m_edges[edge].bd_pixs.begin(); it != m_edges[edge].bd_pixs.end(); it++){
         m_borders.erase(*it); 
     }
@@ -162,8 +165,8 @@ void Graph<Node, Edge, Border>::RemoveEdge(UINT32 edge){
 }
 
 // merge super pixels sup1 into sup0.
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::MergeSupixels(UINT32 sup0, UINT32 sup1){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::MergeSupixels(UINT32 sup0, UINT32 sup1){
     // In main process, only process case sup1 > sup0, and merge sup1 to sup0.
     if(sup0 > sup1){
         MergeSupixels(sup1, sup0);
@@ -194,8 +197,8 @@ void Graph<Node, Edge, Border>::MergeSupixels(UINT32 sup0, UINT32 sup1){
 }
 
 
-template<typename Node, typename Edge, typename Border>
-void Graph<Node, Edge, Border>::CreateGraphFromLabelI(){
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
     auto CollectNeighbour = [&](UINT32 cur_idx, UINT32 cur_label, UINT32 &bd_cnt, UINT32 &edge_cnt, UINT32 step){
         UINT32 nei_label = m_in_labelI.GetDataByIdx(cur_idx + step);
         
@@ -240,6 +243,15 @@ void Graph<Node, Edge, Border>::CreateGraphFromLabelI(){
                 CollectNeighbour(pix_idx, pix_label, bd_cnt, edge_cnt, m_wd);
         }
     } 
+}
+
+template<typename NODE, typename EDGE, typename BORDER>
+void Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
+    UINT32 label = 0;
+    for(UINT32 k=0; k < m_supixs.size(); k++){
+        m_outLabelI.ResetDataFromVector(m_supixs[k].pixs, label);
+        label += 1;
+    }
 }
 
 

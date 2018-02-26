@@ -61,11 +61,13 @@ public:
     
     void SetData(BT val, UINT32 y, UINT32 x=0, UINT32 z=0);
     void SetDataByIdx(BT val, UINT32 k);
+    void ResetDataFromVector(std::vector<UINT32> idxs, BT val);
+    void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs =1);
+    
     void Copy(CDataTempl<BT> &data);
     void AssignFromVector(std::vector<BT> &dataV);
     void Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
     void Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
-    void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs =1);
     void Reset(BT val);
     
     // normal member functions.
@@ -110,6 +112,22 @@ void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
     assert(k>=0 && k<m_size);
     m_pBuf[k] = val;
 }
+template <typename BT>
+void CDataTempl<BT>::ResetDataFromVector(std::vector<UINT32> idxs, BT val){
+    for(UINT32 k= idxs.size()-1; k >= 0; k--){
+        m_pBuf[idxs[k]] = val;
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
+    UINT32 y1 = y0 + ys;
+    UINT32 x1 = x0 + xs;
+    UINT32 z1 = z0 + zs;
+    for(UINT32 z=z0; z<z1; z++)    
+        for(UINT32 y=y0; y<y1; y++)    
+            for(UINT32 x=x0; x<x1; x++)
+                this->SetData(val, y, x, z);
+}
 
 template <typename BT>
 void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
@@ -140,16 +158,6 @@ void CDataTempl<BT>::Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data
     for(UINT32 k=0; k<m_size; k++){
         m_pBuf[k] = data0.GetDataByIdx(k) + data1.GetDataByIdx(k);
     }
-}
-template <typename BT>
-void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
-    UINT32 y1 = y0 + ys;
-    UINT32 x1 = x0 + xs;
-    UINT32 z1 = z0 + zs;
-    for(UINT32 z=z0; z<z1; z++)    
-        for(UINT32 y=y0; y<y1; y++)    
-            for(UINT32 x=x0; x<x1; x++)
-                this->SetData(val, y, x, z);
 }
 template <typename BT>
 void CDataTempl<BT>::Reset(BT val){
