@@ -111,11 +111,11 @@ public:
         assert(m_ht == pInput->GetYDim() && m_wd==pInput->GetXDim());
         m_pInLabelI = pInput;
     }
-    void AssignOutputLabel();
+    CDataTempl<UINT32> & AssignOutputLabel();
     void CreateGraphFromLabelI();
     
     // operators on graph
-    void MergeSupixels(UINT32 sup0, UINT32 sup1);
+    void MergeSuperPixels(UINT32 sup0, UINT32 sup1);
     void AddPixel2Supixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px);
     
     void MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup);
@@ -124,8 +124,8 @@ public:
     
 
     // empty function as API.
-    virtual void ComputeGraphWeights() = 0;
-    virtual void ComputeEdgeWeights(UINT32 edge) = 0;
+    void ComputeGraphWeights();
+    void ComputeEdgeWeights(UINT32 edge);
 };
 
 template<typename NODE, typename EDGE, typename BORDER>
@@ -143,7 +143,7 @@ void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 
         m_borders[*it].ModifySuperPixel(sup0, same_sup);
         m_edges[edge0].bd_pixs.push_back(*it);
     }
-    m_edges.erase();
+    m_edges.erase(edge1);
 }
 
 // update super pixel id in edge, and the border pixels on it.
@@ -166,10 +166,10 @@ void Graph<NODE, EDGE, BORDER>::RemoveEdge(UINT32 edge){
 
 // merge super pixels sup1 into sup0.
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::MergeSupixels(UINT32 sup0, UINT32 sup1){
+void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     // In main process, only process case sup1 > sup0, and merge sup1 to sup0.
     if(sup0 > sup1){
-        MergeSupixels(sup1, sup0);
+        MergeSuperPixels(sup1, sup0);
         return;
     }
 
@@ -186,9 +186,9 @@ void Graph<NODE, EDGE, BORDER>::MergeSupixels(UINT32 sup0, UINT32 sup1){
             UpdateEdge(it->second, sup0, sup1);
         }
         else{
-            MergeTwoEdge(m_supixs[sup0].adjacents[it->first], sup0, it->second);
+            MergeTwoEdge(m_supixs[sup0].adjacents[it->first], it->second, sup0, sup1);
         }
-        ComputeEdgeWeights(m_supixs[sup0].adjacents[it->first]);
+        //ComputeEdgeWeights(m_supixs[sup0].adjacents[it->first]);
     }
 
     // 3. delete sup1 and its connections with sup0.
@@ -200,28 +200,30 @@ void Graph<NODE, EDGE, BORDER>::MergeSupixels(UINT32 sup0, UINT32 sup1){
 template<typename NODE, typename EDGE, typename BORDER>
 void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
     auto CollectNeighbour = [&](UINT32 cur_idx, UINT32 cur_label, UINT32 &bd_cnt, UINT32 &edge_cnt, UINT32 step){
-        UINT32 nei_label = m_in_labelI.GetDataByIdx(cur_idx + step);
+        UINT32 nei_label = m_pInLabelI->GetDataByIdx(cur_idx + step);
         
         // new border pixel
         if(nei_label != cur_label){
-            Border bd_pix(cur_idx, cur_idx+step, cur_label, cur_label);
+            BndryPix bd_pix(cur_idx, cur_idx+step, cur_label, cur_label);
             m_borders[bd_cnt] = bd_pix;
-            bd_cnt += 1;
 
             // check if the new supix is already added into superpixel's adjacent.
-            if(m_supixs[pix_label].adjacents.find(nei_label) == m_supixs[pix_label].adjacents.end()){
-                Edge new_edge(pix_label, nei_label);
+            if(m_supixs[cur_label].adjacents.find(nei_label) == m_supixs[cur_label].adjacents.end()){
+                Edge new_edge(cur_label, nei_label);
                 m_edges[edge_cnt]  = new_edge;
-                m_edges[edge_cnt].bd_pixs.push_back(bd_pix);
+                m_edges[edge_cnt].bd_pixs.push_back(bd_cnt);
                 
                 // add the adjacent supixel to neighood.
-                m_supixs[pix_label].adjacents[nei_label] = nei_cnt;
+                m_supixs[cur_label].adjacents[nei_label] = edge_cnt;
+                m_supixs[nei_label].adjacents[cur_label] = edge_cnt;
                 edge_cnt += 1;
             }
             else{
-                UINT32 eid = m_supixs[pix_label].adjacents[nei_label];
-                m_edges[eid].bd_pixs.push_back(bd_pix);
+                UINT32 eid = m_supixs[cur_label].adjacents[nei_label];
+                m_edges[eid].bd_pixs.push_back(bd_cnt);
             }
+            
+            bd_cnt += 1;
         }
     };
 
@@ -246,12 +248,14 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
+CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     UINT32 label = 0;
     for(UINT32 k=0; k < m_supixs.size(); k++){
         m_outLabelI.ResetDataFromVector(m_supixs[k].pixs, label);
         label += 1;
     }
+
+    return m_outLabelI;
 }
 
 

@@ -114,7 +114,7 @@ void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
 }
 template <typename BT>
 void CDataTempl<BT>::ResetDataFromVector(std::vector<UINT32> idxs, BT val){
-    for(UINT32 k= idxs.size()-1; k >= 0; k--){
+    for(SINT32 k= idxs.size()-1; k >= 0; k--){
         m_pBuf[idxs[k]] = val;
     }
 }

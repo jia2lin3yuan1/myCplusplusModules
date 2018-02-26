@@ -524,14 +524,14 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
         // step 1:: extend along boundary pixels based on orogonal segments.
         vector<pair<UINT32, UINT32> > bdPair;
         GrowingExtend(curMask, bdPair, ext_hor);
-        WriteToCSV(curMask, "test_extend.csv");
-        
-        string py_command = "python pyShow.py";
+
+        //WriteToCSV(curMask, "./output/test_extend.csv");
+        //string py_command = "python pyShow.py";
         //system(py_command.c_str());
 
         // step 2:: starting from corner points, shrink back pixel by pixel.
         GrowingShrink(curMask, bdPair, ext_hor);
-        WriteToCSV(curMask, "test_shrink.csv");
+        //WriteToCSV(curMask, "./output/test_shrink.csv");
 
         // step 3:: retained growing pixels merge to the group, used as seed for next growing loop.
         grow_1step = curMask.ReplaceByValue(ms_POS_FG, ms_FG);

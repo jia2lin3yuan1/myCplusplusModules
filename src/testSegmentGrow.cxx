@@ -27,13 +27,16 @@ void testSegmentGrow(std::string fpath, UINT32 imgHt, UINT32 imgWd){
     ProposalGenerate(distM, bgSem, maskI);
     WriteToCSV(maskI, "./output/test.csv");
     
+    string py_command = "python pyShow.py";
+    system(py_command.c_str());
+    
 }
 
 
 int main(){
     UINT32 imgHt = 500;
     UINT32 imgWd = 375;
-    std::string fpath = "./data_segment/"; 
+    std::string fpath = "./input/"; 
    
     testSegmentGrow(fpath, imgHt, imgWd);
     
