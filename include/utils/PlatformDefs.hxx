@@ -15,6 +15,15 @@
 
 #include <math.h>
 
+/* Turn on / Turn off some functions. */
+// #define DEBUG_SEGMENT_STOCK
+//#define DEBUG_SEGMENT_GROW
+//#define DEBUG_SEGMENT_MERGE
+
+
+
+
+// Global Data Type and Structure.
 typedef unsigned char  UINT8;
 typedef char           SINT8;
 typedef unsigned short UINT16;
@@ -26,6 +35,18 @@ typedef int64_t        SINT64;
 typedef void           VOID;
 typedef bool           BOOL;
 
+
+typedef struct SeedNode{
+    UINT32 id0;
+    UINT32 id1;
+    float cost;
+    SeedNode(UINT32 a=0, UINT32 b=0, float c=0){id0=a; id1=b; cost=c;}
+}Seed;
+struct SeedCmp{
+    bool operator()(const Seed &lhs, const Seed &rhs){
+        return lhs.cost > rhs.cost;
+    }
+};
 
 // Global Parameters.
 typedef struct Global_Parameters{
@@ -79,14 +100,6 @@ typedef struct Global_Parameters{
     }
 
 }GlbParam;
-
-
-
-
-
-
-
-
 
 
 

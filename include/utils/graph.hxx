@@ -35,9 +35,11 @@ public:
 
     void ModifySuperPixel(UINT32 new_sup, UINT32 ori_sup){
         if(sup1 == ori_sup)
-            sup1 = ori_sup;
+            sup1 = new_sup;
+        else if(sup2==ori_sup)
+            sup2 = new_sup;
         else
-            sup2 = ori_sup;
+            cout<<"Error in border: MergeSuperPixels. ("<<sup1<<", "<<sup2<<"), ("<<ori_sup<<", "<<new_sup<<")."<<endl;
     }
 
     UINT32 GetPixelInSuperPixel(UINT32 sup){
@@ -68,18 +70,17 @@ public:
     
     void ModifySuperPixel(UINT32 new_sup, UINT32 ori_sup){
         if(sup1 == ori_sup)
-            sup1 = ori_sup;
+            sup1 = new_sup;
+        else if(sup2 == ori_sup)
+            sup2 = new_sup;
         else
-            sup2 = ori_sup;
+            cout<<"Error in Edge: MergeSuperPixels. ("<<sup1<<", "<<sup2<<"), ("<<ori_sup<<", "<<new_sup<<")."<<endl;
     }
 };
 
 // super pixel
 class  Supix{
 public: 
-    // bbounding box
-    UINT32 bbox[4]; 
-
     // included pixels.
     vector<UINT32> pixs;
 
@@ -88,10 +89,6 @@ public:
     
     // Functions
     Supix(){
-        bbox[0] = UINT_MAX;
-        bbox[1] = UINT_MAX;
-        bbox[2] = 0;
-        bbox[3] = 0;
     }
 };
 
@@ -123,27 +120,18 @@ public:
     
     // operators on graph
     void MergeSuperPixels(UINT32 sup0, UINT32 sup1);
-    void AddPixel2SuperPixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px);
    
     void MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup);
     void UpdateEdge(UINT32 edge, UINT32 ori_sup, UINT32 new_sup);
     void RemoveEdge(UINT32 edge);
     
 
-    // empty function as API.
+    // virtual function as API.
     virtual void UpdateSuperPixel(UINT32 sup, UINT32 edge){}
     virtual void ComputeGraphWeights()=0;
     virtual void ComputeEdgeWeights(UINT32 edge)=0;
 };
 
-template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::AddPixel2SuperPixel(UINT32 sup, UINT32 pix_idx, UINT32 py, UINT32 px){
-    m_supixs[sup].pixs.push_back(pix_idx);
-    m_supixs[sup].bbox[0] = min(px, m_supixs[sup].bbox[0]);
-    m_supixs[sup].bbox[1] = min(py, m_supixs[sup].bbox[1]);
-    m_supixs[sup].bbox[2] = max(px, m_supixs[sup].bbox[2]);
-    m_supixs[sup].bbox[3] = max(py, m_supixs[sup].bbox[3]);
-}
 
 template<typename NODE, typename EDGE, typename BORDER>
 void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup){
@@ -186,14 +174,13 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     for(auto it=m_supixs[sup1].pixs.begin(); it != m_supixs[sup1].pixs.end(); it++){
         m_supixs[sup0].pixs.push_back(*it);
     }
-    UpdateSuperPixel(sup0, m_supixs[sup0].adjacent[sup1]);
-    m_supixs[sup0].bbox[0] = min(m_supixs[sup0].bbox[0], m_supixs[sup1].bbox[0]);
-    m_supixs[sup0].bbox[1] = min(m_supixs[sup0].bbox[1], m_supixs[sup1].bbox[1]);
-    m_supixs[sup0].bbox[2] = max(m_supixs[sup0].bbox[2], m_supixs[sup1].bbox[2]);
-    m_supixs[sup0].bbox[3] = max(m_supixs[sup0].bbox[3], m_supixs[sup1].bbox[3]);
+    UpdateSuperPixel(sup0, m_supixs[sup0].adjacents[sup1]);
 
     // 2. merge sup1's adjacents to sup0's adjacents.
     for(auto it=m_supixs[sup1].adjacents.begin(); it != m_supixs[sup1].adjacents.end(); it++){
+        if(it->first == sup0)
+            continue;
+        
         // check if sup0 has this super pixel in its neighbour.
         if(m_supixs[sup0].adjacents.find(it->first) == m_supixs[sup0].adjacents.end()){
             m_supixs[sup0].adjacents[it->first] = it->second;
@@ -206,7 +193,16 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     }
 
     // 3. delete sup1 and its connections with sup0.
-    RemoveEdge(m_supixs[sup0].adjacents[sup1]);
+    NODE &ref_supix0 = m_supixs[sup0];
+    NODE &ref_supix1 = m_supixs[sup1];
+    RemoveEdge(ref_supix0.adjacents[sup1]);
+    for(auto it=ref_supix1.adjacents.begin(); it != ref_supix1.adjacents.end(); it++){
+        NODE &ref_supix = m_supixs[it->first];
+        m_supixs[it->first].adjacents.erase(sup1);
+        if(it->first != sup0){
+            m_supixs[it->first].adjacents[sup0] = ref_supix0.adjacents[it->first];
+        }
+    }
     m_supixs.erase(sup1);
 }
 
@@ -218,12 +214,12 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
         
         // new border pixel
         if(nei_label != cur_label){
-            BndryPix bd_pix(cur_idx, cur_idx+step, cur_label, cur_label);
+            BndryPix bd_pix(cur_idx, cur_idx+step, cur_label, nei_label);
             m_borders[bd_cnt] = bd_pix;
 
             // check if the new supix is already added into superpixel's adjacent.
             if(m_supixs[cur_label].adjacents.find(nei_label) == m_supixs[cur_label].adjacents.end()){
-                Edge new_edge(cur_label, nei_label);
+                EDGE new_edge(cur_label, nei_label);
                 m_edges[edge_cnt]  = new_edge;
                 m_edges[edge_cnt].bd_pixs.push_back(bd_cnt);
                 
@@ -250,7 +246,7 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
             UINT32 pix_label = m_pInLabelI->GetDataByIdx(pix_idx);
             
             // add the pixel to super pixel.
-            AddPixel2SuperPixel(pix_label, pix_idx, py, px);
+            m_supixs[pix_label].pixs.push_back(pix_idx);
 
             // look to pixel on the right and bottom side, check if exists borders.
             if(px < m_wd-1)

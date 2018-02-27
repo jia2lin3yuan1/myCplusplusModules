@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 # Python saving by:: np.savetxt('fname.csv', rgbI[...,0], delimiter=',', fmt='%1.5e')
 
 ta = np.loadtxt('output/test.csv', delimiter=',')
+print "::Showing image has shape and vale::"
 print ta.shape, np.unique(ta)
 
 plt.imshow(ta)
