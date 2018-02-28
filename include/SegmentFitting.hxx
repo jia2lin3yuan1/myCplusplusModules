@@ -226,7 +226,8 @@ void Segment_Fit::DP_segments(CDataTempl<float> &fit_err){
             float min_cost = 2*m_pParam->segFit_inf_err, min_fitCost=0, min_numSeg=0;
             for(UINT32 j = st_k; j < k; j ++){
                 // compute cost for having segment [iniIdxs[st_k],  iniIdxs[j]]
-                float BIC_cost  = (acc_numV[j]+1) * Log_LUT(m_iniIdxs[k]-m_iniIdxs[st_k]+1);
+                // float BIC_cost  = (acc_numV[j]+1) * Log_LUT(m_iniIdxs[k]-m_iniIdxs[st_k]+1);
+                float BIC_cost  = (acc_numV[j]+1) * log(m_iniIdxs[k]-m_iniIdxs[st_k]+1);
                 float fit_cost  = seg_costV[j] + fit_err.GetData(j, k)*(m_iniIdxs[k]-m_iniIdxs[j]);
                 float fit_resist = m_pParam->segFit_inf_err*(fit_err.GetData(j, k)>m_pParam->segFit_err_thr);
                 float cand_cost  = fit_cost + m_pParam->segFit_bic_alpha*BIC_cost + fit_resist;
