@@ -36,8 +36,6 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, CData
     Segment_Stock segStock(imgHt, imgWd);
     Segment_Fit segFit_H(imgWd, &glbParam);
     for(UINT32 k=0; k < imgHt; ++k){
-        if(k == 318)
-            UINT32 a=0;
         SegmentFittingOneLine(segFit_H, segStock, distM, bgSem, k, true);
     }
 
