@@ -18,4 +18,6 @@ fig, ax = plt.subplots(1,2)
 ax[0].imshow(ta)
 ax[1].imshow(tb)
 plt.show()
+
 '''
+
