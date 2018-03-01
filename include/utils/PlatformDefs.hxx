@@ -18,7 +18,7 @@
 /** Turn on / Turn off some functions. **/
 // #define DEBUG_SEGMENT_STOCK
 
-#define DEBUG_SEGMENT_GROW_STEP
+// #define DEBUG_SEGMENT_GROW_STEP
 
 // #define DEBUG_SEGMENT_GROW
 
@@ -117,7 +117,7 @@ typedef struct Global_Parameters{
         segGrow_proposal_size_thr = 40;
 
         // segment merge.
-        merge_supix_bic_alpha    = 1;
+        merge_supix_bic_alpha    = 2e-1;
         merge_supix_bic_addi_len = 1;
         merge_merger_thr         = 0;
     }

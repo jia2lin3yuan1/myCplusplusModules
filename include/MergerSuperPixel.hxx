@@ -12,12 +12,21 @@
 #include "utils/graph.hxx"
 #include "SegmentGrow.hxx"
 
+typedef struct LineBorder{
+    UINT32 minK;
+    UINT32 maxK;
+    UINT32 size;
+    LineBorder(UINT32 minV=1e9, UINT32 maxV=0, UINT32 s=0){
+        minK = minV; maxK = maxV; size = s;
+    }
+}LineBD;
+
 typedef struct BorderInfo{
     // bounding box, <y0, x0, y1, x1>.
     UINT32 bbox[4];
 
-    vector<pair<UINT32, UINT32> > border_h; // <minH, maxH>
-    vector<pair<UINT32, UINT32> > border_v; // <minV, maxV>
+    vector<LineBD> border_h; // <minH, maxH>
+    vector<LineBD> border_v; // <minV, maxV>
     
     BorderInfo(){
         bbox[0] = UINT_MAX;
@@ -28,9 +37,12 @@ typedef struct BorderInfo{
     
     void ResizeBorderHV(UINT32 ht, UINT32 wd){
         border_h.clear();
-        border_h.resize(bbox[2]-bbox[0]+1, make_pair(wd, 0));
+        LineBD h_linebd(ht, 0, 0);
+        border_h.resize(bbox[2]-bbox[0]+1, h_linebd);
+        
         border_v.clear();
-        border_v.resize(bbox[3]-bbox[1]+1, make_pair(ht, 0));
+        LineBD v_linebd(ht, 0, 0);
+        border_v.resize(bbox[3]-bbox[1]+1, v_linebd);
     }
     void ClearBorderHV(){
         border_h.clear();
@@ -93,7 +105,7 @@ public:
 
     // function working on adding member variables on Node and Edge.
     void ComputeSuperPixelCost(UINT32 sup);
-    float ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, bool is_row);
+    float ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, UINT32 size, bool is_row);
     float ComputeBICcost(UINT32 numPix);
 
     // Merge operations
@@ -127,6 +139,8 @@ void SuperPixelMerger::GetDebugImage(CDataTempl<float> &debugI, UINT32 mode){
 }
 
 void SuperPixelMerger::Merger(){
+    //AssignOutputLabel();
+    //WriteToCSV(m_outLabelI, "./output/test_extend.csv");
     while(m_merge_seeds.size()>0){
         Seed top_node(0,0,0);
         top_node = m_merge_seeds.top();
@@ -145,11 +159,18 @@ void SuperPixelMerger::Merger(){
 
         if(top_node.cost > m_pParam->merge_merger_thr)
             break;
+        
 
-        cout<<endl<<"--------------------------------------------------"<<endl;
-        cout<<"Start Merger .....  "<< m_edges[top_node.id0].sup1<<", "<<m_edges[top_node.id0].sup2<<", "<<top_node.cost<<endl;
         MergeSuperPixels(m_edges[top_node.id0].sup1, m_edges[top_node.id0].sup2);
-        cout<<".........End"<< endl<<endl;
+        cout<<"Merge..."<< m_edges[top_node.id0].sup1<<", "<<m_edges[top_node.id0].sup2<<", "<<top_node.cost<<endl;
+        cout<<".........End. # superpixel is: "<<m_supixs.size()<< endl<<endl;
+        
+        /*
+        AssignOutputLabel();
+        WriteToCSV(m_outLabelI, "./output/test_shrink.csv");
+        string py_command = "python pyShow.py";
+        system(py_command.c_str());
+        */
     }
 }
 
@@ -187,26 +208,30 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
         ref_edge.border.bbox[ch0] = min(bbox0_0, bbox1_0);
         ref_edge.border.bbox[ch1] = max(bbox0_1, bbox1_1);
         
-
         // compute cost
-        vector<pair<UINT32, UINT32> > &ref_linebd0 = is_row? supix0.border.border_h : supix0.border.border_v;
-        vector<pair<UINT32, UINT32> > &ref_linebd1 = is_row? supix1.border.border_h : supix1.border.border_v;
-        vector<pair<UINT32, UINT32> > &ref_edge_linebd = is_row? ref_edge.border.border_h : ref_edge.border.border_v;
+        vector<LineBD> &ref_linebd0 = is_row? supix0.border.border_h : supix0.border.border_v;
+        vector<LineBD> &ref_linebd1 = is_row? supix1.border.border_h : supix1.border.border_v;
+        vector<LineBD> &ref_edge_linebd = is_row? ref_edge.border.border_h : ref_edge.border.border_v;
         for(UINT32 k=ref_edge.border.bbox[ch0]; k<=ref_edge.border.bbox[ch1]; k++){
-            UINT32 minP, maxP;
+            UINT32 minP, maxP, size;
             if(k < bbox0_0 || k > bbox0_1){
-                minP = ref_linebd1[k-bbox1_0].first;   maxP = ref_linebd1[k-bbox1_0].second;
+                size = ref_linebd1[k-bbox1_0].size;
+                minP = ref_linebd1[k-bbox1_0].minK;   maxP = ref_linebd1[k-bbox1_0].maxK;
             }
             else if(k < bbox1_0 || k > bbox1_1){
-                minP = ref_linebd0[k-bbox0_0].first;   maxP = ref_linebd0[k-bbox0_0].second;
+                size = ref_linebd0[k-bbox0_0].size;
+                minP = ref_linebd0[k-bbox0_0].minK;   maxP = ref_linebd0[k-bbox0_0].maxK;
             }
             else{
-                minP = min(ref_linebd0[k-bbox0_0].first, ref_linebd1[k-bbox1_0].first);   
-                maxP = max(ref_linebd0[k-bbox0_0].second, ref_linebd1[k-bbox1_0].second);   
+                size = ref_linebd0[k-bbox0_0].size + ref_linebd1[k-bbox1_0].size;
+                minP = min(ref_linebd0[k-bbox0_0].minK, ref_linebd1[k-bbox1_0].minK);   
+                maxP = max(ref_linebd0[k-bbox0_0].maxK, ref_linebd1[k-bbox1_0].maxK);   
             }
-            ref_edge.new_fit_cost += ComputeFitCost(k,minP, maxP, is_row); 
-            ref_edge.new_bic_cost += ComputeBICcost(maxP-minP + 1);
-            ref_edge_linebd.push_back(make_pair(minP, maxP));
+            ref_edge.new_fit_cost += ComputeFitCost(k, minP, maxP, size, is_row); 
+            ref_edge.new_bic_cost += ComputeBICcost(size + 1);
+
+            LineBD new_linebd(minP, maxP, size);
+            ref_edge_linebd.push_back(new_linebd);
         }
     };
     
@@ -242,8 +267,14 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     float merge_fit_cost = ref_edge.new_fit_cost - (m_supixs[ref_edge.sup1].fit_cost + m_supixs[ref_edge.sup2].fit_cost);
     float merge_bic_cost = ref_edge.new_bic_cost - (m_supixs[ref_edge.sup1].bic_cost + m_supixs[ref_edge.sup2].bic_cost);
     
+    cout<<"*** Merge Edge:: "<< edge << ", supix = "<<ref_edge.sup1<<" / "<<ref_edge.sup2<<", border size = "<<ref_edge.bd_pixs.size()<<endl;
+    cout<<"\t\t"<<" sup1:: fit_cost = "<< m_supixs[ref_edge.sup1].fit_cost <<",\t bic_cost = "<<m_supixs[ref_edge.sup1].bic_cost<<",\t size ="<<m_supixs[ref_edge.sup1].pixs.size()<<endl;
+    cout<<"\t\t"<<" sup2:: fit_cost = "<< m_supixs[ref_edge.sup2].fit_cost <<",\t bic_cost = "<<m_supixs[ref_edge.sup2].bic_cost<<",\t size="<<m_supixs[ref_edge.sup2].pixs.size()<<endl;
+    cout<<"\t\t"<<"Merge:: fit_cost = "<< ref_edge.new_fit_cost <<",\t bic_cost = "<<ref_edge.new_bic_cost<<endl;
+    cout<<"\t\t"<<"Merged::fit_cost = "<< merge_fit_cost <<",\t bic_cost = "<<merge_bic_cost<<endl<<endl;
+    
     ref_edge.mergecost = merge_fit_cost + m_pParam->merge_supix_bic_alpha*merge_bic_cost;
-    ref_edge.mergecost = ref_edge.mergecost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size()); 
+    //ref_edge.mergecost = ref_edge.mergecost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size()); 
 }
 
 void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
@@ -264,16 +295,19 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     UINT32 y0 = ref_border.bbox[0];
     UINT32 x0 = ref_border.bbox[1];
     ref_supix.border.ResizeBorderHV(m_ht, m_wd);
+    vector<LineBD> &ref_linebd_h = ref_border.border_h;
+    vector<LineBD> &ref_linebd_v = ref_border.border_v;
     for(auto it=ref_supix.adjacents.begin(); it!=ref_supix.adjacents.end(); it ++){
         DistEdge &ref_edge = m_edges[it->second];
         for(auto it2=ref_edge.bd_pixs.begin(); it2!=ref_edge.bd_pixs.end(); it2++){
             UINT32 pix = m_borders[*it2].GetPixelInSuperPixel(sup);
             py = pix/m_wd;  px = pix%m_wd;
-
-            ref_border.border_h[py-y0].first  = px < ref_border.border_h[py-y0].first?  px : ref_border.border_h[py-y0].first;       
-            ref_border.border_h[py-y0].second = px > ref_border.border_h[py-y0].second? px : ref_border.border_h[py-y0].second;      
-            ref_border.border_v[px-x0].first  = py < ref_border.border_v[px-x0].first?  py : ref_border.border_v[px-x0].first;       
-            ref_border.border_v[px-x0].second = py > ref_border.border_v[px-x0].second? py : ref_border.border_v[px-x0].second;      
+            ref_linebd_h[py-y0].size += 1;
+            ref_linebd_h[py-y0].minK = px < ref_linebd_h[py-y0].minK? px : ref_linebd_h[py-y0].minK; 
+            ref_linebd_h[py-y0].maxK = px > ref_linebd_h[py-y0].maxK? px : ref_linebd_h[py-y0].maxK;
+            ref_linebd_v[px-x0].size += 1;
+            ref_linebd_v[px-x0].minK = py < ref_linebd_v[px-x0].minK? py : ref_linebd_v[px-x0].minK;
+            ref_linebd_v[px-x0].maxK = py > ref_linebd_v[px-x0].maxK? py : ref_linebd_v[px-x0].maxK;
         }
     }
 
@@ -282,13 +316,13 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     UINT32 bbox_wd = ref_border.bbox[3]-x0 + 1;
     float fit_cost = 0.0, bic_cost = 0.0;
     for(UINT32 k = 0; k < bbox_ht; k++){
-        fit_cost += ComputeFitCost(k, ref_border.border_h[k].first, ref_border.border_h[k].second, true);
-        bic_cost += ComputeBICcost(ref_border.border_h[k].second - ref_border.border_h[k].first + 1);
+        fit_cost += ComputeFitCost(k+y0, ref_linebd_h[k].minK, ref_linebd_h[k].maxK, ref_linebd_h[k].size, true);
+        bic_cost += ComputeBICcost(ref_linebd_h[k].size + 1);
         //cout<<"HT: "<<k<<",  fit_cost: "<<fit_cost<<endl;
     }
     for(UINT32 k = 0; k < bbox_wd; k++){
-        fit_cost += ComputeFitCost(k, ref_border.border_v[k].first, ref_border.border_v[k].second, false);
-        bic_cost += ComputeBICcost(ref_border.border_v[k].second - ref_border.border_v[k].first + 1);
+        fit_cost += ComputeFitCost(k+x0, ref_linebd_v[k].minK, ref_linebd_v[k].maxK, ref_linebd_v[k].size, false);
+        bic_cost += ComputeBICcost(ref_linebd_v[k].size + 1);
         //cout<<"WD: "<<k<<",  fit_cost: "<<fit_cost<<endl;
     }
 
@@ -296,7 +330,7 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     ref_supix.bic_cost = bic_cost;
 }
 
-float SuperPixelMerger::ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, bool is_row){
+float SuperPixelMerger::ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, UINT32 size, bool is_row){
     DpSeg dp_seg1, dp_seg2;
     if (is_row){
         m_pSegStock->GetDpSegment(dp_seg1, line, pix0, true);
@@ -308,7 +342,7 @@ float SuperPixelMerger::ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, bo
     }
     float fit_err  = m_pSegStock->GetAllSegCost(line, dp_seg1.st, dp_seg2.end, is_row);
     
-    return (fit_err * (pix1 - pix0 + 1));
+    return (fit_err * size);
 }
 
 float SuperPixelMerger::ComputeBICcost(UINT32 numPix){
