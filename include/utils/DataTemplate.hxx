@@ -58,19 +58,20 @@ public:
     UINT32 GetZDim() const;
     UINT32 GetSize() const;
     UINT32 Coordinate2Index(UINT32 y, UINT32 x=0, UINT32 z=0) const;
-    
+   
+    // assign value
     void SetData(BT val, UINT32 y, UINT32 x=0, UINT32 z=0);
     void SetDataByIdx(BT val, UINT32 k);
     void ResetDataFromVector(std::vector<UINT32> idxs, BT val);
     void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs =1);
-    
-    void Copy(CDataTempl<BT> &data);
-    void AssignFromVector(std::vector<BT> &dataV);
-    void Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
-    void Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
     void Reset(BT val);
     
-    // normal member functions.
+    void Copy(CDataTempl<BT> &data);
+    void AssignFromVector(const std::vector<BT> &dataV);
+    void Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
+    void Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
+    
+    // fetch data..
     BT GetData(SINT32 y, SINT32 x=0, SINT32 zs=0) const;
     BT GetDataByIdx(UINT32 k) const;
     void GetBulkData(std::vector<BT> &pixV, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
@@ -78,6 +79,8 @@ public:
     void GetColumn(CDataTempl<BT> &col, UINT32 x, UINT32 z=0);
 
     // math on CDataTemplate.
+    void argmax(CDataTempl<UINT32> &indexI, UINT32 dim);
+    void Equal(CDataTempl<UINT32> &boolI, BT val);
     double Mean();
     double BulkMean(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
     BT Max();
@@ -101,7 +104,7 @@ UINT32 CDataTempl<BT>::GetSize() const {return m_size;}
 template <typename BT>
 UINT32 CDataTempl<BT>::Coordinate2Index(UINT32 y, UINT32 x, UINT32 z) const {return (z*m_yDim+y)*m_xDim + x;}
 
-// modify data.
+// assign and modify data.
 template <typename BT>
 void CDataTempl<BT>::SetData(BT val, UINT32 y, UINT32 x, UINT32 z){
     assert(y>=0 && y<m_yDim && x>=0 && x<m_xDim && z>=0 && z<m_zDim);
@@ -130,6 +133,13 @@ void CDataTempl<BT>::ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0, UINT
 }
 
 template <typename BT>
+void CDataTempl<BT>::Reset(BT val){
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = val;
+    }
+}
+
+template <typename BT>
 void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
     assert(m_xDim==data.GetXDim() && m_yDim==data.GetYDim() && m_zDim==data.GetZDim());
     for(UINT32 k=0; k<m_size; k++){
@@ -137,7 +147,7 @@ void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
     }
 }
 template <typename BT>
-void CDataTempl<BT>::AssignFromVector(std::vector<BT> &dataV){
+void CDataTempl<BT>::AssignFromVector(const std::vector<BT> &dataV){
     assert(m_size == dataV.size());
     for(UINT32 k=0; k<m_size; k++){
         m_pBuf[k] = dataV[k];
@@ -159,15 +169,8 @@ void CDataTempl<BT>::Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data
         m_pBuf[k] = data0.GetDataByIdx(k) + data1.GetDataByIdx(k);
     }
 }
-template <typename BT>
-void CDataTempl<BT>::Reset(BT val){
-    for(UINT32 k=0; k<m_size; k++){
-        m_pBuf[k] = val;
-    }
-}
     
-    
-    // normal member functions.
+// fetching data.
 template <typename BT>
 BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z) const {
     y = y<0? 0 : (y> m_yDim-1? m_yDim-1 : y);
@@ -204,6 +207,39 @@ void CDataTempl<BT>::GetColumn(CDataTempl<BT> &col, UINT32 x, UINT32 z){
 }
 
 // math on CDataTemplate.
+template <typename BT>
+void CDataTempl<BT>::argmax(CDataTempl<UINT32> &indexI, UINT32 dim){
+    UINT32 loop_len = dim==0? m_yDim*m_zDim : (dim==1? m_zDim : 1);
+    UINT32 step_len = dim==0? 1 : (dim==1? m_xDim : m_yDim*m_xDim);
+    UINT32  cmp_len = dim==0? m_xDim : (dim==1? m_yDim : m_zDim);
+    assert(indexI.GetSize() == loop_len*step_len);
+    
+    for(UINT32 k=0; k < loop_len; k++){
+        UINT32 idx = k*step_len*cmp_len;
+        for(UINT32 m=0; m < step_len; m++){
+            BT maxV = m_pBuf[idx+m], maxIdx = 0;
+            for(UINT32 i=1; i<cmp_len; i++){
+                if(m_pBuf[idx+m+i*step_len] > maxV){
+                    maxV   = m_pBuf[idx+m+i*step_len];
+                    maxIdx = i;
+                }
+            }
+            indexI.SetDataByIdx(maxIdx, k*loop_len+m);
+        } 
+    }
+}
+
+template <typename BT>
+void CDataTempl<BT>::Equal(CDataTempl<UINT32> &boolI, BT val){
+    assert(m_size == boolI.GetSize());
+    for(UINT32 k=0; k<m_size; k++){
+        if(m_pBuf[k] == val)
+            boolI.SetDataByIdx(1, k);
+        else
+            boolI.SetDataByIdx(0, k);
+    }
+}
+
 template <typename BT>
 double CDataTempl<BT>::Mean(){
     return this->BulkMean(0, m_yDim, 0, m_xDim, 0, m_zDim);
