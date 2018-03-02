@@ -113,14 +113,14 @@ void Segment_Stock::AssignDpSegments(CDataTempl<float> &fit_err, vector<UINT32> 
             m_dp_seg_h.push_back(dp_seg);
             m_dp_segInfo.ResetBulkData(seg_id, line, 1, pt_st, pt_end-pt_st, e_seg_h, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-            m_dp_segInfo.ResetBulkData(pt_end, line, 1, pt_st, pt_end-pt_st, e_seg_h, 1);
+            m_dp_segInfo.ResetBulkData(pt_st, line, 1, pt_st, pt_end-pt_st, e_seg_h, 1);
 #endif
         }
         else{
             m_dp_seg_v.push_back(dp_seg);
             m_dp_segInfo.ResetBulkData(seg_id, pt_st, pt_end-pt_st, line, 1, e_seg_v, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-            m_dp_segInfo.ResetBulkData(pt_end, pt_st, pt_end-pt_st, line, 1, e_seg_v, 1);
+            m_dp_segInfo.ResetBulkData(pt_st, pt_st, pt_end-pt_st, line, 1, e_seg_v, 1);
 #endif
         }
 

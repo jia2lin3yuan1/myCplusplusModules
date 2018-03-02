@@ -184,8 +184,21 @@ BT CDataTempl<BT>::GetDataByIdx(UINT32 k) const{
     return m_pBuf[k];
 }
 template <typename BT>
-void CDataTempl<BT>::GetBulkData(std::vector<BT> &pixV, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){
-    // pass
+void CDataTempl<BT>::GetBulkData(std::vector<BT> &pixV, UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0, UINT32 zs){ 
+    UINT32 y1 = y0 + ys;
+    UINT32 x1 = x0 + xs;
+    UINT32 z1 = z0 + zs;
+    assert(x0>=0 && x1<m_xDim && y0>=0 && y1<m_yDim && z0>=0 && z1<m_zDim);
+
+    UINT32 cnt = 0;
+    for(UINT32 z=z0; z < z1; z++){
+        for(UINT32 y=y0; y < y1; y++){
+            for(UINT32 x=x0; x < x1; x++){
+                pixV[cnt] = this->GetData(y, x, z);
+                cnt += 1;
+            }
+        }
+    }
 }
 template <typename BT>
 void CDataTempl<BT>::GetRow(CDataTempl<BT> &row, UINT32 y, UINT32 z){

@@ -466,7 +466,8 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
     }
 
     if(grow_tot > m_pParam->segGrow_proposal_size_thr){
-        cout<<propId<<" ::  total grow size is ... "<<grow_tot<<endl;
+        if (OPEN_DEBUG)
+            cout<<propId<<" ::  total grow size is ... "<<grow_tot<<endl;
         curMask.ModifyMaskOnNonZeros(m_out_maskI, propId);
         propId += 1;
         
@@ -500,8 +501,10 @@ void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
             */
         }
     }
-    cout<<"Segment Grow Donw!."<<endl;
-    cout<<"*******************************************"<<endl;
+    if (OPEN_DEBUG){
+        cout<<"Segment Grow Donw!."<<endl;
+        cout<<"*******************************************"<<endl;
+    }
 }
 
 #endif

@@ -24,7 +24,7 @@
 
 // #define DEBUG_SEGMENT_MERGE
 
-
+#define OPEN_DEBUG 0
 
 
 // Global Data Type and Structure.
@@ -32,7 +32,7 @@ typedef unsigned char  UINT8;
 typedef char           SINT8;
 typedef unsigned short UINT16;
 typedef short          SINT16;
-typedef uint32_t       UINT32;
+typedef unsigned int   UINT32;
 typedef int32_t        SINT32;
 typedef uint64_t       UINT64;
 typedef int64_t        SINT64;
