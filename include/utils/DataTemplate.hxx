@@ -68,6 +68,7 @@ public:
     
     void Copy(CDataTempl<BT> &data);
     void AssignFromVector(const std::vector<BT> &dataV);
+    void AssignFromVector(BT* dataV);
     void Minimum(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
     void Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data1);
     
@@ -144,6 +145,13 @@ void CDataTempl<BT>::Copy(CDataTempl<BT> &data){
     assert(m_xDim==data.GetXDim() && m_yDim==data.GetYDim() && m_zDim==data.GetZDim());
     for(UINT32 k=0; k<m_size; k++){
         m_pBuf[k] = data.GetDataByIdx(k);
+    }
+}
+template <typename BT>
+void CDataTempl<BT>::AssignFromVector(BT* dataV){
+    assert(m_size == dataV.size());
+    for(UINT32 k=0; k<m_size; k++){
+        m_pBuf[k] = dataV[k];
     }
 }
 template <typename BT>

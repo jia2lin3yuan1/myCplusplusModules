@@ -224,7 +224,7 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
         UINT32 nei_label = m_pInLabelI->GetDataByIdx(cur_idx + step);
         
         // new border pixel
-        if(nei_label != cur_label){
+        if(nei_label != cur_label && nei_label != 0){
             BndryPix bd_pix(cur_idx, cur_idx+step, cur_label, nei_label);
             m_borders[bd_cnt] = bd_pix;
 
@@ -255,6 +255,8 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
         for(UINT32 px = 0; px < m_wd; px++){
             UINT32 pix_idx = py*m_wd + px;
             UINT32 pix_label = m_pInLabelI->GetDataByIdx(pix_idx);
+            if(pix_label == 0) // ignore label 0
+                continue;
             
             // add the pixel to super pixel.
             m_supixs[pix_label].pixs.push_back(pix_idx);

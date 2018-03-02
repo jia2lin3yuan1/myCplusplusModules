@@ -28,7 +28,7 @@ void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Stock &segStock,  CDataT
  *           distVec: distance Matrix, size = distCh*imgHt*imgWd. arrange as: first wd, then ht, then distCh.
  *            semVec: semantic Matrix, size = semCh *imgHt*imgWd. arrange as: first wd, then ht, then semCH.
  */
-void ProposalGenerate(std::vector<UINT32> & imgInfo, const std::vector<float> & distVec, const std::vector<float> &semVec, UINT32 * labelArr){
+void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * labelArr){
     // load data to CDataTemplate from vector.
     UINT32 imgHt  = imgInfo[0];
     UINT32 imgWd  = imgInfo[1];
@@ -51,6 +51,7 @@ void ProposalGenerate(std::vector<UINT32> & imgInfo, const std::vector<float> & 
     
     
     // prepare output variable
+    UINT32 cnt = 0;
     CDataTempl<UINT32> out_labelI(imgHt, imgWd);
 
     // global parameter.
@@ -74,6 +75,11 @@ void ProposalGenerate(std::vector<UINT32> & imgInfo, const std::vector<float> & 
     // case what we are debuging.
 #ifdef DEBUG_SEGMENT_STOCK
     out_labelI = segStock.GetSegmentLabelImage();
+    for(UINT32 y=0; y < imgHt; y++){ for(UINT32 x=0; x < imgWd; x++){
+           labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
+           cnt += 1;
+        }
+    }
     return;
 #endif
     
@@ -85,6 +91,12 @@ void ProposalGenerate(std::vector<UINT32> & imgInfo, const std::vector<float> & 
     
 #ifdef DEBUG_SEGMENT_GROW
     out_labelI = segGrow.GetFinalResult();
+    for(UINT32 y=0; y < imgHt; y++){
+        for(UINT32 x=0; x < imgWd; x++){
+           labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
+           cnt += 1;
+        }
+    }
     return;
 #endif
 
@@ -107,7 +119,6 @@ void ProposalGenerate(std::vector<UINT32> & imgInfo, const std::vector<float> & 
     out_labelI = supixMerger.AssignOutputLabel();
 
     // CDataTemplate to vector.
-    UINT32 cnt = 0;
     for(UINT32 y=0; y < imgHt; y++){
         for(UINT32 x=0; x < imgWd; x++){
            labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
