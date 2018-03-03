@@ -51,7 +51,7 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, CData
 #endif
     // ----------------------
     // generate super pixels based on segment.
-    Segment_Grow segGrow(imgHt, imgWd, bgSem, &segStock, &glbParam);
+    Segment_Grow segGrow(imgHt, imgWd, true, bgSem, &segStock, &glbParam);
     segGrow.ImagePartition(bgSem);
     
 #ifdef DEBUG_SEGMENT_GROW
@@ -69,11 +69,12 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, CData
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
 
-    /*
+#ifdef DEBUG_SEGMENT_MERGE_DEBUG
     CDataTempl<float> debugI(imgHt, imgWd);
     supixMerger.GetDebugImage(debugI);
     maskI = debugI;
-    */
+#endif
+    
     supixMerger.Merger();
     maskI = supixMerger.AssignOutputLabel();
 }

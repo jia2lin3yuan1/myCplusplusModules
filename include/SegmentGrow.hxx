@@ -39,6 +39,7 @@ class Segment_Grow{
 protected:
     // variables exist in the whole life.
     UINT32 m_ht, m_wd;
+    bool   m_row_as_seed;  // each growing depends on row segments if true, otherwise col segs.
     CDataTempl<float>    m_out_debugI;
     CDataTempl<UINT32>   m_out_maskI; // segment grow mask. 0-unprocessed data, 1-background. >1 - grown region label.
     Segment_Stock *      m_pSegStock; // segment informations 
@@ -56,8 +57,8 @@ protected:
     const GlbParam *m_pParam;
 
 public:
-    Segment_Grow(UINT32 ht, UINT32 wd, const CDataTempl<UINT32> &sem_bgI, Segment_Stock * pSegStock,  const GlbParam *pParam){
-        m_ht = ht;  m_wd = wd;
+    Segment_Grow(UINT32 ht, UINT32 wd, bool row_as_seed, const CDataTempl<UINT32> &sem_bgI, Segment_Stock * pSegStock,  const GlbParam *pParam){
+        m_ht = ht;  m_wd = wd;  m_row_as_seed = row_as_seed;
         m_out_debugI.Init(m_ht, m_wd, 3);
         m_out_maskI.Init(m_ht, m_wd);
         
@@ -80,11 +81,12 @@ public:
     void GetGrowSegment(GrowSeg &gw_seg, UINT32 id, bool is_row);
     void GetGrowSegment(GrowSeg &gw_seg, UINT32 py, UINT32 px, bool is_row);
     void DisableGrowSegment(UINT32 id, bool is_row);
+    bool IsGrowSegmentValid(UINT32 id, bool is_row);
     void AddGrowSegment(UINT32 line, UINT32 st, UINT32 end, bool is_row);
 
     // Generate a label image with segment growing.
     void ImagePartition(CDataTempl<UINT32> &sem_bgI);
-    void GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId);
+    void GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId, bool is_row);
     void GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
     void GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
     float ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor, UINT32                   &mask_end_A, UINT32 &mask_end_B);
@@ -128,14 +130,25 @@ void Segment_Grow::InitialSetGrowSegments(const CDataTempl<UINT32> &sem_bgI, boo
             m_grow_segInfo.ResetBulkData(k, dp_seg.line, 1, dp_seg.st, dp_seg.end-dp_seg.st, e_seg_h, 1);
      
             // if the segment is valid, add into segment seed.
-            if(gw_seg.valid){
+            if(m_row_as_seed && gw_seg.valid){
                 Seed seg_seed(k, k, gw_seg.bic_cost+gw_seg.fit_err);
                 m_grow_seg_seeds.push(seg_seed);
             }
         }
         else{
+            // set invalid according to sem_bgI
+            if(sem_bgI.GetData(dp_seg.st+1, dp_seg.line)==1){
+                gw_seg.valid=false;
+                gw_seg.fit_err = 1e3;
+            }
+            
             m_grow_seg_v.push_back(gw_seg);
             m_grow_segInfo.ResetBulkData(k, dp_seg.st, dp_seg.end-dp_seg.st, dp_seg.line, 1, e_seg_v, 1);
+            // if the segment is valid, add into segment seed.
+            if(m_row_as_seed==false && gw_seg.valid){
+                Seed seg_seed(k, k, gw_seg.bic_cost+gw_seg.fit_err);
+                m_grow_seg_seeds.push(seg_seed);
+            }
         }
     }
 }
@@ -150,6 +163,13 @@ void Segment_Grow::GetGrowSegment(GrowSeg &gw_seg, UINT32 id, bool is_row){
 void Segment_Grow::GetGrowSegment(GrowSeg &gw_seg, UINT32 py, UINT32 px, bool is_row){
     UINT32 id = is_row? m_grow_segInfo.GetData(py, px, e_seg_h) : m_grow_segInfo.GetData(py, px, e_seg_v);
     this->GetGrowSegment(gw_seg, id, is_row);
+}
+
+bool Segment_Grow::IsGrowSegmentValid(UINT32 id, bool is_row){
+    if(is_row)
+        return m_grow_seg_h[id].valid;
+    else
+        return m_grow_seg_v[id].valid;
 }
 
 void Segment_Grow::DisableGrowSegment(UINT32 id, bool is_row){
@@ -426,22 +446,26 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
     }
 }
 
-void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
+void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId, bool is_row){
     
     // initial a mask from seed.   
     GrowSeg gw_seg;
-    this->GetGrowSegment(gw_seg, UINT32(grow_seed_id), true);
+    this->GetGrowSegment(gw_seg, UINT32(grow_seed_id), is_row);
     CDataTempl<UINT32> curMask(m_ht, m_wd);
     for(UINT32 k=gw_seg.st; k<gw_seg.end; k++){
-        UINT32 glb_flag =  m_out_maskI.GetData(gw_seg.line, k);
+        UINT32 glb_flag =  is_row? m_out_maskI.GetData(gw_seg.line, k) : m_out_maskI.GetData(k, gw_seg.line);
         if(glb_flag > 0)
             return;
     }
 
     // Growing from seed looply.
-    bool ext_hor = false;
+    if(is_row)
+        curMask.ResetBulkData(ms_FG, gw_seg.line, 1, gw_seg.st, gw_seg.end-gw_seg.st);
+    else
+        curMask.ResetBulkData(ms_FG, gw_seg.st, gw_seg.end-gw_seg.st, gw_seg.line, 1);
+
+    bool ext_hor = is_row? false : true;
     UINT32 grow_tot = 0, grow_1step = gw_seg.end-gw_seg.st; 
-    curMask.ResetBulkData(ms_FG, gw_seg.line, 1, gw_seg.st, gw_seg.end-gw_seg.st);
     while(grow_1step>0){
         // step 1:: extend along boundary pixels based on orogonal segments.
         vector<pair<UINT32, UINT32> > bdPair;
@@ -453,7 +477,7 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
         GrowingShrink(curMask, bdPair, ext_hor);
 #ifdef DEBUG_SEGMENT_GROW_STEP
         WriteToCSV(curMask, "./output/test_shrink.csv");
-        if(propId == 9 || propId == 11 || propId==18){
+        if(true){//propId == 9 || propId == 11 || propId==18){
             string py_command = "python pyShow.py";
             system(py_command.c_str());
         }
@@ -471,9 +495,11 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
         curMask.ModifyMaskOnNonZeros(m_out_maskI, propId);
         propId += 1;
         
-        //WriteToCSV(m_out_debugI, "./output/test.csv", 1);
-        //string py_command = "python pyShow.py";
-        //system(py_command.c_str());
+#ifdef DEBUG_SEGMENT_GROW
+        WriteToCSV(m_out_maskI, "./output/test.csv", 1);
+        string py_command = "python pyShow.py";
+        system(py_command.c_str());
+#endif
     }
 }
 
@@ -490,9 +516,9 @@ void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
         m_grow_seg_seeds.pop();
 
         // Grow from the seed if it is valid 
-        if(m_grow_seg_h[top_node.id0].valid == true){
-            this->DisableGrowSegment(top_node.id0, true);
-            GrowingFromASegment(top_node.id0, propId);
+        if(IsGrowSegmentValid(top_node.id0, m_row_as_seed)){
+            this->DisableGrowSegment(top_node.id0, m_row_as_seed);
+            GrowingFromASegment(top_node.id0, propId, m_row_as_seed);
             /* 
             GrowSeg gw_seg;
             m_pSegStock->GetGrowSegment(gw_seg, UINT32(top_node.id0), true);

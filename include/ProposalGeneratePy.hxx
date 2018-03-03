@@ -86,7 +86,7 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     // ----------------------
     // generate super pixels based on segment.
     std::cout<<"step 2: growing based on segment "<<std::endl; 
-    Segment_Grow segGrow(imgHt, imgWd, bgSem, &segStock, &glbParam);
+    Segment_Grow segGrow(imgHt, imgWd, true, bgSem, &segStock, &glbParam);
     segGrow.ImagePartition(bgSem);
     
 #ifdef DEBUG_SEGMENT_GROW
