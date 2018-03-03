@@ -188,18 +188,26 @@ void Segment_Grow::AddGrowSegment(UINT32 line, UINT32 st, UINT32 end, bool is_ro
         GrowSeg gw_seg(seg_id, line, st, end, dp_seg.fit_err, bic_cost, true);
         m_grow_seg_h.push_back(gw_seg);
         m_grow_segInfo.ResetBulkData(seg_id, line, 1, st, end-st, e_seg_h, 1);
-        
+       
         // add of segment seed.
-        Seed seg_seed(seg_id, seg_id, gw_seg.bic_cost+gw_seg.fit_err);
-        m_grow_seg_seeds.push(seg_seed);
+        if(m_row_as_seed){
+            Seed seg_seed(seg_id, seg_id, gw_seg.bic_cost+gw_seg.fit_err);
+            m_grow_seg_seeds.push(seg_seed);
+        }
     }
     else{
         UINT32 seg_id  = m_grow_seg_v.size();
         DpSeg dp_seg;
         m_pSegStock->GetDpSegment(dp_seg, st, line, false);
-        GrowSeg gw_seg(line, st, end, dp_seg.fit_err, bic_cost, true);
+        GrowSeg gw_seg(seg_id, line, st, end, dp_seg.fit_err, bic_cost, true);
         m_grow_seg_v.push_back(gw_seg);
         m_grow_segInfo.ResetBulkData(seg_id, st, end-st, line, 1, e_seg_v, 1);
+        
+        // add of segment seed.
+        if(!m_row_as_seed){
+            Seed seg_seed(seg_id, seg_id, gw_seg.bic_cost+gw_seg.fit_err);
+            m_grow_seg_seeds.push(seg_seed);
+        }
     }
 }
 
@@ -324,6 +332,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         // update segment stock.
         GrowSeg gw_seg;
         this->GetGrowSegment(gw_seg, py, px, is_row);
+
         if(gw_seg.valid == false)
             return;
         
@@ -407,7 +416,7 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
         UINT32 py   = pre_bds[k].first;
         UINT32 px   = pre_bds[k].second;
         UINT32 line = ext_hor? py : px;
-
+        
         // if have been assigned a label.
         if(m_out_maskI.GetData(py, px) > 0)
             continue;
@@ -441,7 +450,7 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             Insert2bdPair(line, gw_seg.st);
         
         UINT32 mask_end_id =  ext_hor? mask.GetData(line, gw_seg.end-1) : mask.GetData(gw_seg.end-1, line);
-        if(mask_end_id == ms_POS_FG) // todo:::
+        if(mask_end_id == ms_POS_FG)
             Insert2bdPair(line, gw_seg.end-1);
     }
 }
@@ -467,6 +476,8 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId, bool
     bool ext_hor = is_row? false : true;
     UINT32 grow_tot = 0, grow_1step = gw_seg.end-gw_seg.st; 
     while(grow_1step>0){
+
+
         // step 1:: extend along boundary pixels based on orogonal segments.
         vector<pair<UINT32, UINT32> > bdPair;
         GrowingExtend(curMask, bdPair, ext_hor);

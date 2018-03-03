@@ -24,10 +24,16 @@ void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Stock &segStock,  CDataT
 
 
 template<typename OUT_TYPE>
-void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, CDataTempl<OUT_TYPE> &maskI){
+void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<OUT_TYPE> &maskI){
     
     UINT32 imgHt = distM.GetYDim();
     UINT32 imgWd = distM.GetXDim();
+    
+    CDataTempl<UINT32> semI(imgHt, imgWd);
+    semM.argmax(semI, 2);
+
+    CDataTempl<UINT32> bgSem(imgHt, imgWd);
+    semI.Equal(bgSem, 0);
 
     GlbParam glbParam;
 
