@@ -253,11 +253,11 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
         for(UINT32 px = 0; px < m_wd; px++){
             UINT32 pix_idx = py*m_wd + px;
             UINT32 pix_label = m_pInLabelI->GetDataByIdx(pix_idx);
-            if(pix_label == 0) // ignore label 0
-                continue;
             
             // add the pixel to super pixel.
             m_supixs[pix_label].pixs.push_back(pix_idx);
+            if(pix_label == 0) // ignore label 0
+                continue;
 
             // look to pixel on the right and bottom side, check if exists borders.
             if(px < m_wd-1)

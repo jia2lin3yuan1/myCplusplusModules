@@ -162,7 +162,7 @@ void SuperPixelMerger::Merger(){
 
         if(top_node.cost > m_pParam->merge_merger_thr)
             break;
-       
+      
         if (OPEN_DEBUG)
             cout<<"Merge..."<<top_node.id0<<": "<< m_edges[top_node.id0].sup1<<", "<<m_edges[top_node.id0].sup2<<", "<<top_node.cost<<endl;
         MergeSuperPixels(m_edges[top_node.id0].sup1, m_edges[top_node.id0].sup2);
@@ -186,15 +186,15 @@ void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
 
 void SuperPixelMerger::ComputeGraphWeights(){
     // compute the cost of the super pixel.
-    for(SINT32 k = m_supixs.size()-1; k >= 0; k--){
-        ComputeSuperPixelCost(k);
+    for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
+        ComputeSuperPixelCost(it->first);
     }
     
     // compute edge's weight.
-    for(SINT32 k = m_edges.size()-1; k >= 0; k--){
-        ComputeEdgeWeights(k);
+    for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
+        ComputeEdgeWeights(it->first);
 
-        Seed merge_seed(k, k, m_edges[k].mergecost);
+        Seed merge_seed(it->first, it->first, m_edges[it->first].mergecost);
         m_merge_seeds.push(merge_seed);
     }
 }
