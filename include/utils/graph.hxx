@@ -180,30 +180,28 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     for(auto it=m_supixs[sup1].adjacents.begin(); it != m_supixs[sup1].adjacents.end(); it++){
         if(it->first == sup0)
             continue;
-        if(sup0==2 && sup1==10)
-            cout<<it->first<<"start merge 1"<<endl;
         
         // check if sup0 has this super pixel in its neighbour.
         if(m_supixs[sup0].adjacents.find(it->first) == m_supixs[sup0].adjacents.end()){
             m_supixs[sup0].adjacents[it->first] = it->second;
             UpdateEdge(it->second, sup0, sup1);
-            
-            if(sup0==2 && sup1==10)
-                cout<<"it is not sup0's neighbour. 2"<<endl;
         }
         else{
             MergeTwoEdge(m_supixs[sup0].adjacents[it->first], it->second, sup0, sup1);
-            
-            if(sup0==2 && sup1==10)
-                cout<<"it is sup0's neighbour. 3"<<endl;
         }
         ComputeEdgeWeights(m_supixs[sup0].adjacents[it->first]);
-        
-        if(sup0==2 && sup1==10)
-            cout<<"compute edge's weight. 4"<<endl;
     }
 
-    // 3. delete sup1 and its connections with sup0.
+    // 3. update sup0's adjacents attribute if it is not in sup1's adjacents.
+    for(auto it=m_supixs[sup0].adjacents.begin(); it != m_supixs[sup0].adjacents.end(); it++){
+        if(it->first == sup1 || m_supixs[sup1].adjacents.find(it->first) != m_supixs[sup1].adjacents.end()){
+            continue;
+        }
+
+        ComputeEdgeWeights(m_supixs[sup0].adjacents[it->first]);
+    }
+
+    // 4. delete sup1 and its connections with sup0.
     NODE &ref_supix0 = m_supixs[sup0];
     NODE &ref_supix1 = m_supixs[sup1];
     RemoveEdge(ref_supix0.adjacents[sup1]);
