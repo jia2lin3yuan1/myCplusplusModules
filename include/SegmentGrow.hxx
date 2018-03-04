@@ -33,6 +33,8 @@ enum Mask_type {ms_BG=0, ms_FG, ms_POS_FG};
  * Class: Segment_Grow.
  *        Based on segment, do region growing.
  *
+ *   API: ImagePartition()
+ *        GetFinalResult()
  */
 
 class Segment_Grow{
@@ -47,7 +49,7 @@ protected:
     CDataTempl<UINT32>   m_grow_segInfo;
     vector<GrowSeg>      m_grow_seg_h;
     vector<GrowSeg>      m_grow_seg_v;
-    priority_queue<Seed, vector<Seed>, SeedCmp> m_grow_seg_seeds;
+    priority_queue<Seed_1D, vector<Seed_1D>, SeedCmp_1D> m_grow_seg_seeds;
     
     // tmp variables for each shrink process in growing.
     vector<pair<UINT32, UINT32> > m_borderH; // used to record the border pixel of current mask in each line
@@ -131,7 +133,7 @@ void Segment_Grow::InitialSetGrowSegments(const CDataTempl<UINT32> &sem_bgI, boo
      
             // if the segment is valid, add into segment seed.
             if(m_row_as_seed && gw_seg.valid){
-                Seed seg_seed(k, k, gw_seg.bic_cost+gw_seg.fit_err);
+                Seed_1D seg_seed(k, gw_seg.bic_cost+gw_seg.fit_err);
                 m_grow_seg_seeds.push(seg_seed);
             }
         }
@@ -146,7 +148,7 @@ void Segment_Grow::InitialSetGrowSegments(const CDataTempl<UINT32> &sem_bgI, boo
             m_grow_segInfo.ResetBulkData(k, dp_seg.st, dp_seg.end-dp_seg.st, dp_seg.line, 1, e_seg_v, 1);
             // if the segment is valid, add into segment seed.
             if(m_row_as_seed==false && gw_seg.valid){
-                Seed seg_seed(k, k, gw_seg.bic_cost+gw_seg.fit_err);
+                Seed_1D seg_seed(k, gw_seg.bic_cost+gw_seg.fit_err);
                 m_grow_seg_seeds.push(seg_seed);
             }
         }
@@ -191,7 +193,7 @@ void Segment_Grow::AddGrowSegment(UINT32 line, UINT32 st, UINT32 end, bool is_ro
        
         // add of segment seed.
         if(m_row_as_seed){
-            Seed seg_seed(seg_id, seg_id, gw_seg.bic_cost+gw_seg.fit_err);
+            Seed_1D seg_seed(seg_id, gw_seg.bic_cost+gw_seg.fit_err);
             m_grow_seg_seeds.push(seg_seed);
         }
     }
@@ -205,7 +207,7 @@ void Segment_Grow::AddGrowSegment(UINT32 line, UINT32 st, UINT32 end, bool is_ro
         
         // add of segment seed.
         if(!m_row_as_seed){
-            Seed seg_seed(seg_id, seg_id, gw_seg.bic_cost+gw_seg.fit_err);
+            Seed_1D seg_seed(seg_id, gw_seg.bic_cost+gw_seg.fit_err);
             m_grow_seg_seeds.push(seg_seed);
         }
     }
@@ -506,7 +508,7 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId, bool
         curMask.ModifyMaskOnNonZeros(m_out_maskI, propId);
         propId += 1;
         
-#ifdef DEBUG_SEGMENT_GROW
+#ifdef DEBUG_SEGMENT_GROW_STEP
         WriteToCSV(m_out_maskI, "./output/test.csv", 1);
         string py_command = "python pyShow.py";
         system(py_command.c_str());
@@ -522,7 +524,7 @@ void Segment_Grow::ImagePartition(CDataTempl<UINT32> &sem_bgI){
     
     while(m_grow_seg_seeds.size()>0){
         // pop out a seed, and do growing from it if valid.
-        Seed top_node(0,0,0);
+        Seed_1D top_node(0,0.0);
         top_node = m_grow_seg_seeds.top();
         m_grow_seg_seeds.pop();
 

@@ -3,8 +3,15 @@
 
 /*
  * Class: SuperPixelMerger.
- *    used to merge super pixels based on fitting error from distance map. It's also based on the Bayesian Information Criterion, which is used to balance the size and fitting error.i
+ *    used to merge super pixels based on fitting error from distance map. It's also based on the Bayesian Information Criterion, which is used to balance the size and fitting error.
  *
+ *   API: AssignInputLabel()
+ *        CreateGraphFromLabelI()
+ *        ComputeGraphWeights()
+ *        Merger()
+ *
+ *        GetDebugImage()
+ *        AssignOutputLabel()
  */
 
 
@@ -85,7 +92,7 @@ public:
 class SuperPixelMerger:public Graph<DistSuperPixel, DistEdge, BndryPix>{
 protected:
     Segment_Stock *m_pSegStock;
-    priority_queue<Seed, vector<Seed>, SeedCmp> m_merge_seeds;
+    priority_queue<Seed_1D, vector<Seed_1D>, SeedCmp_1D> m_merge_seeds;
 
 
     // Parameter.
@@ -145,7 +152,7 @@ void SuperPixelMerger::Merger(){
 #endif
 
     while(m_merge_seeds.size()>0){
-        Seed top_node(0,0,0);
+        Seed_1D top_node(0,0.0);
         top_node = m_merge_seeds.top();
         m_merge_seeds.pop();
        
@@ -194,7 +201,7 @@ void SuperPixelMerger::ComputeGraphWeights(){
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         ComputeEdgeWeights(it->first);
 
-        Seed merge_seed(it->first, it->first, m_edges[it->first].mergecost);
+        Seed_1D merge_seed(it->first, m_edges[it->first].mergecost);
         m_merge_seeds.push(merge_seed);
     }
 }
