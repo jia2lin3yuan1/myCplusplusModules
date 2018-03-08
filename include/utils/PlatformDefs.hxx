@@ -16,13 +16,13 @@
 #include <math.h>
 
 /** Turn on / Turn off some functions. **/
-//#define DEBUG_SEGMENT_STOCK
+// #define DEBUG_SEGMENT_STOCK
 
-//#define DEBUG_SEGMENT_GROW_STEP
+// #define DEBUG_SEGMENT_GROW_STEP
 
-#define DEBUG_SEGMENT_GROW
+// #define DEBUG_SEGMENT_GROW
 
-//#define DEBUG_SEGMENT_MERGE
+// #define DEBUG_SEGMENT_MERGE
 
 #define OPEN_DEBUG 0 // output information on console.
 
@@ -48,9 +48,14 @@ typedef struct SeedNode_OneKey{
     SeedNode_OneKey(UINT32 a=0, float c=0){id0=a; cost=c;}
 }Seed_1D;
 
-struct SeedCmp_1D{
+struct SeedCmp_1D{ // Increasing order
     bool operator()(const Seed_1D &lhs, const Seed_1D &rhs){
         return lhs.cost > rhs.cost;
+    }
+};
+struct SeedCmp_1D_Dec{ // Decreasing order.
+    bool operator()(const Seed_1D &lhs, const Seed_1D &rhs){
+        return lhs.cost < rhs.cost;
     }
 };
 
@@ -90,51 +95,75 @@ struct MKey2DCmp{
 typedef struct Global_Parameters{
 
     // segment fitting parameters.
-    float segFit_bic_alpha;
-    float segFit_err_thr;
-    float segFit_inf_err;
+    float segFit_dp_semdiff_thr;
+    float segFit_dp_bic_alpha;
+    float segFit_dp_err_thr;
+    float segFit_dp_inf_err;
 
     // segment growing paramters.
+    float  segGrow_seed_sem_alpha;
     float  segGrow_seed_bic_alpha;
     float  segGrow_seed_bic_scale;
     UINT32 segGrow_seed_size_thr;
+    
+    float  segGrow_extd_semdiff_thr;
 
     float  segGrow_shrk_bic_alpha;
     UINT32 segGrow_shrk_bic_addi_len;
-    float segGrow_shrk_fit_cost_thr;
-    float segGrow_shrk_fit_cost_penalty;
-    float segGrow_shrk_cost_thr;
+    float  segGrow_shrk_fit_cost_thr;
+    float  segGrow_shrk_fit_cost_penalty;
+    float  segGrow_shrk_cost_thr;
 
     UINT32 segGrow_proposal_size_thr;
 
     // segment merge.
-    float  merge_supix_bic_alpha;
     UINT32 merge_supix_bic_addi_len;
+    
+    float  merge_edge_bic_alpha;
+    float  merge_edge_semdiff_thr;
+    float  merge_edge_semdiff_pnty;
+
     float  merge_merger_thr;
+
+    // tri-map.
+    float  tri_seed_bic_alpha;
+    float  tri_seed_fit_alpha;
     
     Global_Parameters(){
         // segment fitting parameters.
-        segFit_bic_alpha = 1e-1;
-        segFit_err_thr   = 5e-2;
-        segFit_inf_err   = 1e3;
+        segFit_dp_semdiff_thr = 0.7;
+        segFit_dp_bic_alpha   = 1e-1;
+        segFit_dp_err_thr     = 5e-2;
+        segFit_dp_inf_err     = 1e3;
 
         // segment growing paramters.
+        segGrow_seed_sem_alpha = 5e-2;
         segGrow_seed_bic_alpha = 5e-1;
         segGrow_seed_bic_scale = 5e-1;
         segGrow_seed_size_thr  = 5;
 
-        segGrow_shrk_bic_alpha    = 1;
+        segGrow_extd_semdiff_thr  = 0.7;
+
+        segGrow_shrk_bic_alpha    = 5e-1;
         segGrow_shrk_bic_addi_len = 2;
         segGrow_shrk_fit_cost_thr = 5e-2;
         segGrow_shrk_fit_cost_penalty = 1e3;
         segGrow_shrk_cost_thr      = 0;
 
-        segGrow_proposal_size_thr  = 40;
+        segGrow_proposal_size_thr  = 10;
 
         // segment merge.
-        merge_supix_bic_alpha    = 5e-1;
         merge_supix_bic_addi_len = 1;
-        merge_merger_thr         = 0;
+        
+        merge_edge_bic_alpha     = 5e-1;
+        merge_edge_semdiff_thr   = 0.7;
+        merge_edge_semdiff_pnty  = 1e4;
+
+        merge_merger_thr         = 1e1;
+
+        // tri-map generate
+        tri_seed_bic_alpha = 2e-1;
+        tri_seed_fit_alpha = 1e1;
     }
 
 }GlbParam;
@@ -143,6 +172,17 @@ typedef struct Global_Parameters{
 
 
 // Global Functions.
+
+template<typename T2>
+float _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){
+    float diff = 0; 
+    for(UINT32 k=0; k<obsV.size(); k++){
+        diff += float(pow(obsV[k]-expV[k], 2))/float(expV[k]+obsV[k]);
+    }
+
+    return diff;
+}
+
 template<typename T>
 inline T _CLIP(T v, T minV, T maxV){
     return v<minV? minV : (v > maxV? maxV : v);

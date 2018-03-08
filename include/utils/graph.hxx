@@ -124,7 +124,9 @@ public:
     void MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup);
     void UpdateEdge(UINT32 edge, UINT32 ori_sup, UINT32 new_sup);
     void RemoveEdge(UINT32 edge);
-    
+   
+    // access the graph.
+    map<UINT32, NODE> * GetSuperPixels(){return &m_supixs;} 
 
     // virtual function as API.
     virtual void UpdateSuperPixel(UINT32 sup, UINT32 edge){}

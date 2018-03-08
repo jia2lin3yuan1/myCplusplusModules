@@ -1,61 +1,65 @@
 #ifndef _SEGMENT_STOCK_HXX
 #define _SEGMENT_STOCK_HXX
 
-#include "SegmentFitting.hxx"
 #include "utils/read_write_img.hxx"
-
 using namespace std;
 
-/*
- * Class: SegmentStock.
- * There are three kind of segments in the stock:
- * 1. all_segment: possible segment locates between any two key points.
- * 2. dp_segment:  optimal segment comes from Dynamic Programming Partition in SegmentFitting.
- * 3. grow_segment: it could be segment between any two points in the same line (row or column), its cost is fitting cost of corresponding dp_segment + BIC_cost. 
- */
+typedef struct SegmentInformation{
+    float fit_err;
+    vector<float> sem_score;
+}SegInfo;
+
 typedef struct All_Segment{
-    UINT32 line;
-    UINT32 st;
-    UINT32 end;
-    All_Segment(UINT32 a, UINT32 b, UINT32 c){
-        line=a; st=b; end=c;
+    UINT32 y0, x0; //[pt0, pt1]
+    UINT32 y1, x1;
+    All_Segment(UINT32 a, UINT32 b, UINT32 c, UINT32 d){
+        y0 = a;  x0 = b;  
+        y1 = c;  x1 = d;
     } 
 } Aseg; //[st, end)
 struct AsegCmp{
     bool operator()(const Aseg& lhs, const Aseg& rhs)const{
-        if(lhs.line != rhs.line)
-            return lhs.line < rhs.line;
-        else if(lhs.st != rhs.st)
-            return lhs.st < rhs.st;
+        if(lhs.y0 != rhs.y0)
+            return lhs.y0 < rhs.y0;
+        else if(lhs.x0 != rhs.x0)
+            return lhs.x0 < rhs.x0;
+        else if(lhs.y1 != rhs.y1)
+            return lhs.y1 < rhs.y1;
         else
-            return lhs.end < rhs.end;
+            return lhs.x1 < rhs.x1;
     }
 };
 
 typedef struct DP_Segment{
-    UINT32 id;
-    UINT32 line;
-    UINT32 st;
-    UINT32 end;
-    float fit_err;
+    UINT32 len;
+    UINT32 y0, x0; // [pt0, pt1]
+    UINT32 y1, x1;
+    SegInfo seg_info;
     DP_Segment(){
-        id=-1; line=0; st=0; end=0; fit_err=0;
+        len=0; y0=0; x0=0; y1=0; x1=0;
     }
-    DP_Segment(UINT32 z, UINT32 a, UINT32 b, UINT32 c, float err){
-        id=z; line=a; st=b; end=c; fit_err = err;
+    DP_Segment(UINT32 z, UINT32 a, UINT32 b, UINT32 c, UINT32 d){
+        len = z;
+        y0  = a;  x0 = b;  
+        y1  = c;  x1 = d;
     } 
-} DpSeg; // [st, end)
+} DpSeg; // [pt0, pt1)
+
 
 enum SegType {e_seg_h=0, e_seg_v,  e_seg_type_num};
 
+/*
+ * Class: SegmentStock.
+ * There are two kind of segments in the stock:
+ * 1. all_segment: possible segment locates between any two key points.
+ * 2. dp_segment:  optimal segment comes from Dynamic Programming Partition in SegmentFitting.
+ */
 class Segment_Stock{
 
 protected:
     // Variables.
-    map<Aseg, float, AsegCmp> m_all_seg_h;
-    map<Aseg, float, AsegCmp> m_all_seg_v;
-    vector<DpSeg>     m_dp_seg_h;
-    vector<DpSeg>     m_dp_seg_v;
+    map<Aseg, float, AsegCmp> m_all_seg;
+    map<UINT32, DpSeg>  m_dp_seg;
 
     UINT32 m_ht, m_wd;
     CDataTempl<UINT32> m_dp_segInfo;
@@ -72,89 +76,88 @@ public: //Functions
         return m_dp_segInfo;
     }
 
-    void AssignAllSegments(CDataTempl<float> &fit_err, vector<UINT32> &all_idxs, UINT32 line, bool is_row);
-    void AssignDpSegments(CDataTempl<float> &fit_err, vector<UINT32> &dp_idxs, UINT32 line, bool is_row);
+    void AssignAllSegments(CDataTempl<float> &seg_info, vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
+    void AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
    
-
-    float GetAllSegCost(UINT32 line, UINT32 st, UINT32 end, bool is_row);
-    void GetDpSegment(DpSeg &dp_seg, UINT32 id, bool is_row);
-    void GetDpSegment(DpSeg &dp_seg, UINT32 py, UINT32 px, bool is_row);
-    UINT32 GetDpSegmentSize(bool is_row);
+    float GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
+    
+    void GetDpSegmentById(DpSeg &dp_seg, UINT32 id);
+    void GetDpSegmentByCoord(DpSeg &dp_seg, UINT32 py, UINT32 px, SegType s_type);
+    UINT32 GetDpSegmentSize();
     
 };
 
 
-void Segment_Stock::AssignAllSegments(CDataTempl<float> &fit_err, vector<UINT32> &all_idxs, UINT32 line, bool is_row){
-    UINT32 line_len = is_row? m_wd : m_ht;
-    // assign.
-    for(UINT32 k0=0; k0<all_idxs.size()-1; k0++){
-        UINT32 st  = all_idxs[k0];
-        for(UINT32 k1=k0+1; k1<all_idxs.size(); k1++){
-            UINT32 end = all_idxs[k1]==line_len-1? line_len : all_idxs[k1];
-            Aseg a_seg(line, st, end);
-            if(is_row)
-                m_all_seg_h[a_seg] = fit_err.GetData(k0, k1);
-            else
-                m_all_seg_v[a_seg] = fit_err.GetData(k0, k1);
+void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
+    // assign segments.
+    for(int k0=0; k0<all_idxs.size()-1; k0++){
+        UINT32 y0 = ptY[all_idxs[k0]];
+        UINT32 x0 = ptX[all_idxs[k0]];
+       
+        for(int k1=k0+1; k1 < all_idxs.size(); k1++){
+            UINT32 y1 = ptY[all_idxs[k1]];
+            UINT32 x1 = ptX[all_idxs[k1]];
+           
+            Aseg a_seg(y0, x0, y1, x1);
+            m_all_seg[a_seg] = seg_info.GetData(k0, k1);
         }
     }
 }
 
-void Segment_Stock::AssignDpSegments(CDataTempl<float> &fit_err, vector<UINT32> &dp_idxs, UINT32 line, bool is_row){
-    UINT32 seg_id   = is_row? m_dp_seg_h.size() : m_dp_seg_v.size();
-    UINT32 line_len = is_row? m_wd : m_ht;
+void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
+    UINT32 seg_id = m_dp_seg.size();
+    
     // assign. 
-    UINT32 pt_st = dp_idxs[1], pt_end = 0;
-    for(UINT32 k=3; k<dp_idxs.size(); k+=2){
-        pt_end = dp_idxs[k]==line_len-1? line_len : dp_idxs[k];
-        DpSeg dp_seg(seg_id, line, pt_st, pt_end, fit_err.GetData(dp_idxs[k-3], dp_idxs[k-1]));
+    UINT32 y0 = ptY[dp_idxs[1]];
+    UINT32 x0 = ptX[dp_idxs[1]];
+    for(UINT32 ck=3; ck<dp_idxs.size(); ck+=2){
+        UINT32 y1 = ptY[dp_idxs[ck]];
+        UINT32 x1 = ptX[dp_idxs[ck]];
+        UINT32 seg_len = dp_idxs[ck] - dp_idxs[ck-2]; 
         
-        if(is_row){
-            m_dp_seg_h.push_back(dp_seg);
-            m_dp_segInfo.ResetBulkData(seg_id, line, 1, pt_st, pt_end-pt_st, e_seg_h, 1);
+        DpSeg dp_seg(seg_len, y0, x0, y1, x1);
+        dp_seg.seg_info.fit_err = seg_info.GetData(dp_idxs[ck-3], dp_idxs[ck-1]);    
+        Mkey_2D key(dp_idxs[ck-3], dp_idxs[ck-1]);
+        dp_seg.seg_info.sem_score.assign(semScore[key].begin(), semScore[key].end());
+        m_dp_seg[seg_id] = dp_seg;
+      
+        // record seg id to image.
+        if(y1==y0){
+            m_dp_segInfo.ResetBulkData(seg_id, y0, 1, x0, x1-x0, e_seg_h, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-            m_dp_segInfo.ResetBulkData(pt_st, line, 1, pt_st, pt_end-pt_st, e_seg_h, 1);
+            m_dp_segInfo.ResetBulkData(x0, y0, 1, x0, x1-x0, e_seg_h, 1);
 #endif
         }
         else{
-            m_dp_seg_v.push_back(dp_seg);
-            m_dp_segInfo.ResetBulkData(seg_id, pt_st, pt_end-pt_st, line, 1, e_seg_v, 1);
+            m_dp_segInfo.ResetBulkData(seg_id, y0, y1-y0, x0, 1, e_seg_v, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-            m_dp_segInfo.ResetBulkData(pt_st, pt_st, pt_end-pt_st, line, 1, e_seg_v, 1);
+            m_dp_segInfo.ResetBulkData(y0, y0, y1-y0, x0, 1, e_seg_v, 1);
 #endif
         }
 
         // update for next loop.
         seg_id += 1;
-        pt_st   = pt_end;
+        y0 = y1;   x0 = x1;
     }
 }
 
-float Segment_Stock::GetAllSegCost(UINT32 line, UINT32 st, UINT32 end, bool is_row){
-    Aseg a_seg(line, st, end);
-    if(is_row)
-        return m_all_seg_h[a_seg];
-    else
-        return m_all_seg_v[a_seg];
+
+float Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
+    Aseg a_seg(y0, x0, y1, x1);
+    return m_all_seg[a_seg];
 }
 
-void Segment_Stock::GetDpSegment(DpSeg &dp_seg, UINT32 id, bool is_row){
-    if(is_row)
-        dp_seg = m_dp_seg_h[id];
-    else
-        dp_seg = m_dp_seg_v[id];
+void Segment_Stock::GetDpSegmentById(DpSeg &dp_seg, UINT32 id){
+    dp_seg = m_dp_seg[id];
 }
 
-void Segment_Stock::GetDpSegment(DpSeg &dp_seg, UINT32 py, UINT32 px, bool is_row){
-    UINT32 id = is_row? m_dp_segInfo.GetData(py, px, e_seg_h) : m_dp_segInfo.GetData(py, px, e_seg_v);
-    this->GetDpSegment(dp_seg, id, is_row);
+void Segment_Stock::GetDpSegmentByCoord(DpSeg &dp_seg, UINT32 py, UINT32 px, SegType s_type){
+    UINT32 id = m_dp_segInfo.GetData(py, px, s_type);
+    this->GetDpSegmentById(dp_seg, id);
 }
 
 
-UINT32 Segment_Stock::GetDpSegmentSize(bool is_row){
-    if (is_row)
-        return m_dp_seg_h.size();
-    else
-        return m_dp_seg_v.size();
+UINT32 Segment_Stock::GetDpSegmentSize(){
+    return m_dp_seg.size();
 }
 #endif

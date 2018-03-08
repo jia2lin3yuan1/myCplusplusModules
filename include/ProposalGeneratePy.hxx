@@ -4,23 +4,6 @@
 #include "SegmentGrow.hxx"
 #include "MergerSuperPixel.hxx"
 
-void SegmentFittingOneLine(Segment_Fit &segFit, Segment_Stock &segStock,  CDataTempl<float> &distM, CDataTempl<UINT32> &bgSem, UINT32 line, bool isRow){
-    // First, find the best partition of a line into several small segments. 
-    segFit.AssignY(distM, bgSem, line, isRow);
-    segFit.FindKeyPoints();
-    vector<UINT32> iniIdxs = segFit.GetIniIdxs();
-    
-    CDataTempl<float> fit_err(iniIdxs.size(), iniIdxs.size());
-    segFit.FittingFeasibleSolution(fit_err);
-    
-    segFit.DP_segments(fit_err);
-    vector<UINT32> dpIdxs = segFit.GetdpIdxs();
-    
-    // Record the status into global segment_grow. 
-    segStock.AssignAllSegments(fit_err, iniIdxs, line, isRow);
-    segStock.AssignDpSegments(fit_err, dpIdxs, line, isRow);
-}
-
 
 /*
  * Interface to be called by Cython.
@@ -46,8 +29,8 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     CDataTempl<UINT32> semI(imgHt, imgWd);
     semM.argmax(semI, 2);
 
-    CDataTempl<UINT32> bgSem(imgHt, imgWd);
-    semI.Equal(bgSem, 0);
+    CDataTempl<UINT8> bgSem(imgHt, imgWd);
+    semI.Mask(bgSem, 0);
     
     
     // prepare output variable
@@ -62,15 +45,9 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     
     std::cout<<"step 1: fitting segment "<<std::endl; 
     Segment_Stock segStock(imgHt, imgWd);
-    Segment_Fit segFit_H(imgWd, &glbParam);
-    for(UINT32 k=0; k < imgHt; ++k){
-        SegmentFittingOneLine(segFit_H, segStock, distM, bgSem, k, true);
-    }
-
-    Segment_Fit segFit_V(imgHt, &glbParam);
-    for(UINT32 k=0; k < imgWd; ++k){
-        SegmentFittingOneLine(segFit_V, segStock, distM, bgSem, k, false);
-    }
+    Segment_Fit segFit(&glbParam, &bgSem, &semI, &semM, &distM); 
+    segFit.FittingFeasibleSolution(e_fit_hor, &segStock);
+    segFit.FittingFeasibleSolution(e_fit_ver, &segStock);
    
     // case what we are debuging.
 #ifdef DEBUG_SEGMENT_STOCK
@@ -86,8 +63,8 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     // ----------------------
     // generate super pixels based on segment.
     std::cout<<"step 2: growing based on segment "<<std::endl; 
-    Segment_Grow segGrow(imgHt, imgWd, true, bgSem, &segStock, &glbParam);
-    segGrow.ImagePartition(bgSem);
+    Segment_Grow segGrow(true, &bgSem, &semM, &segStock, &glbParam);
+    segGrow.ImagePartition();
     
 #ifdef DEBUG_SEGMENT_GROW
     out_labelI = segGrow.GetFinalResult();
@@ -103,7 +80,7 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     // ----------------------
     //merge based on generated super pixels.
     std::cout<<"step 3: Merge super pixels. "<<std::endl; 
-    SuperPixelMerger supixMerger(imgHt, imgWd, &segStock, &glbParam);
+    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam);
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     supixMerger.AssignInputLabel(&segLabelI);

@@ -50,7 +50,13 @@ public:
         Copy(data);
         return *this;
     }
-
+   
+    BT operator()(UINT32 y, UINT32 x=0, UINT32 z=0) const{
+        y = y<0? 0 : (y> m_yDim-1? m_yDim-1 : y);
+        x = x<0? 0 : (x> m_xDim-1? m_xDim-1 : x);
+        z = z<0? 0 : (z> m_zDim-1? m_zDim-1 : z);
+        return m_pBuf[this->Coordinate2Index(y,x,z)];
+    }
 
     // inline function.
     UINT32 GetXDim() const;
@@ -81,17 +87,24 @@ public:
 
     // math on CDataTemplate.
     void argmax(CDataTempl<UINT32> &indexI, UINT32 dim);
-    void Equal(CDataTempl<UINT32> &boolI, BT val);
+    template<typename T2>
+    void Mask(CDataTempl<T2> &boolI, BT val);
     double Mean();
     double BulkMean(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
     BT Max();
     BT BulkMax(UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs=1);
 
+    // functions only work on Zdim.
+    void MeanZ(const std::vector<UINT32> &in_yxIds, std::vector<BT> &outV);
+    template<typename T2>
+    void MeanZ(const CDataTempl<T2> &maskI, T2 val, std::vector<BT> &outV);
+    
     // serve for SegmentGrow, only work when m_zDim=1
     void FindBoundaryOnMask(std::vector<std::pair<UINT32, UINT32> > &bds, BT fgV);
     UINT32 FindMaskBorderPoint(UINT32 py, UINT32 px, UINT32 st, UINT32 end, UINT32 step=1);
     UINT32 ReplaceByValue(BT src, BT dst);
-    void ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val);
+    template<typename T2>
+    void ModifyMaskOnNonZeros(const CDataTempl<T2> &matA, BT val);
 };
     // inline function.
 template <typename BT>
@@ -188,7 +201,7 @@ BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z) const {
 }
 template <typename BT>
 BT CDataTempl<BT>::GetDataByIdx(UINT32 k) const{ 
-    // assert(k>=0 && k< m_size);    
+    assert(k>=0 && k< m_size);    
     return m_pBuf[k];
 }
 template <typename BT>
@@ -251,7 +264,8 @@ void CDataTempl<BT>::argmax(CDataTempl<UINT32> &indexI, UINT32 dim){
 }
 
 template <typename BT>
-void CDataTempl<BT>::Equal(CDataTempl<UINT32> &boolI, BT val){
+template <typename T2>
+void CDataTempl<BT>::Mask(CDataTempl<T2> &boolI, BT val){
     assert(m_size == boolI.GetSize());
     for(UINT32 k=0; k<m_size; k++){
         if(m_pBuf[k] == val)
@@ -296,6 +310,39 @@ BT CDataTempl<BT>::BulkMax(UINT32 y0, UINT32 ys, UINT32 x0, UINT32 xs, UINT32 z0
             for(UINT32 x=x0; x<x1; x++)
                 maxV = maxV < this->GetData(y,x,z)? this->GetData(y,x,z) : maxV;
     return maxV;
+}
+// functions only work on Zdim.
+template <typename BT>
+void CDataTempl<BT>::MeanZ(const std::vector<UINT32> &in_yxIds, std::vector<BT> &outV){
+    for(UINT32 z=0; z<m_zDim; z++){
+        outV[z] = 0;
+        UINT32 base_k = z*m_yDim*m_xDim;
+        for(UINT32 k = 0; k < in_yxIds.size(); k++ ) {
+            outV[z] += this->GetDataByIdx(base_k + in_yxIds[k]); 
+        }
+
+        outV[z] = outV[z]/in_yxIds.size();
+    }
+}
+
+template <typename BT>
+template <typename T2>
+void CDataTempl<BT>::MeanZ(const CDataTempl<T2> &maskI, T2 val, std::vector<BT> &outV){
+    UINT32 sizeI = maskI.GetSize();
+    assert(sizeI == m_xDim*m_yDim);
+
+    for(UINT32 z=0; z<m_zDim; z++){
+        outV[z] = 0;
+        UINT32 cnt  = 0;
+        UINT32 base_k = z*m_yDim*m_xDim;
+        for(UINT32 k = 0; k < sizeI; k++ ) {
+            if(maskI.GetDataByIdx(k) == val){
+                cnt     += 1;
+                outV[z] += this->GetDataByIdx(base_k + k); 
+            }
+        }
+        outV[z] = outV[z]/cnt;
+    }
 }
 
 // serve for SegmentGrow.
@@ -384,12 +431,13 @@ UINT32 CDataTempl<BT>::ReplaceByValue(BT src, BT dst){
     return cnt;
 }
 template <typename BT>
-void CDataTempl<BT>::ModifyMaskOnNonZeros(CDataTempl<BT> &matA, BT val){
+template<typename T2>
+void CDataTempl<BT>::ModifyMaskOnNonZeros(const CDataTempl<T2> &matA, BT val){
     assert(m_zDim == 1);
     assert(m_xDim==matA.GetXDim() && m_yDim==matA.GetYDim() && m_zDim==matA.GetZDim());
     for(UINT32 k=0; k < m_size; k++){
-        if(m_pBuf[k] != 0){
-            matA.SetDataByIdx(val, k);
+        if(matA.GetDataByIdx(k) != 0){
+            m_pBuf[k] = val;
         }
     }
 }

@@ -45,11 +45,11 @@ typedef struct BorderInfo{
     void ResizeBorderHV(UINT32 ht, UINT32 wd){
         border_h.clear();
         LineBD h_linebd(ht, 0, 0);
-        border_h.resize(bbox[2]-bbox[0]+1, h_linebd);
+        border_h.assign(bbox[2]-bbox[0]+1, h_linebd);
         
         border_v.clear();
         LineBD v_linebd(ht, 0, 0);
-        border_v.resize(bbox[3]-bbox[1]+1, v_linebd);
+        border_v.assign(bbox[3]-bbox[1]+1, v_linebd);
     }
     void ClearBorderHV(){
         border_h.clear();
@@ -65,6 +65,7 @@ public:
     Border border;
 
     float mergecost;
+    vector<float> new_sem_score;
     float new_fit_cost;
     float new_bic_cost;
     
@@ -78,7 +79,8 @@ public:
 
 class DistSuperPixel:public Supix{
 public:
-    Border border; 
+    Border border;
+    vector<float> sem_score;
     float fit_cost;
     float bic_cost;
 
@@ -91,17 +93,24 @@ public:
 
 class SuperPixelMerger:public Graph<DistSuperPixel, DistEdge, BndryPix>{
 protected:
-    Segment_Stock *m_pSegStock;
-    priority_queue<Seed_1D, vector<Seed_1D>, SeedCmp_1D> m_merge_seeds;
+    // inpput variables.
+    CDataTempl<float> *m_pSemMat;
+    Segment_Stock     *m_pSegStock;
 
+    // generated variables
+    UINT32  m_num_sem;
+    priority_queue<Seed_1D, vector<Seed_1D>, SeedCmp_1D> m_merge_seeds;
 
     // Parameter.
     const GlbParam *m_pParam;
 
 public:
-    SuperPixelMerger(UINT32 ht, UINT32 wd, Segment_Stock *pSegStock, const GlbParam *pParam):Graph(ht, wd){
+    SuperPixelMerger(CDataTempl<float> *pSemMat, Segment_Stock *pSegStock, const GlbParam *pParam):Graph(pSemMat->GetYDim(), pSemMat->GetXDim()){
+        m_pSemMat   = pSemMat;
         m_pSegStock = pSegStock;
         m_pParam    = pParam;
+
+        m_num_sem = m_pSemMat->GetZDim();
     }
     
     // virtual function from Graph
@@ -112,7 +121,7 @@ public:
 
     // function working on adding member variables on Node and Edge.
     void ComputeSuperPixelCost(UINT32 sup);
-    float ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, UINT32 size, bool is_row);
+    float ComputeFitCost(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1, UINT32 size);
     float ComputeBICcost(UINT32 numPix);
 
     // Merge operations
@@ -160,10 +169,8 @@ void SuperPixelMerger::Merger(){
         if(m_edges.find(top_node.id0)==m_edges.end()){
             continue;
         }
-        // if the edge has been updated, update its cost, and push it back.
+        // if the edge has been updated, it is a invalid one.
         if(top_node.cost != m_edges[top_node.id0].mergecost){
-            top_node.cost = m_edges[top_node.id0].mergecost;
-            m_merge_seeds.push(top_node);
             continue;
         }
 
@@ -189,6 +196,7 @@ void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
     m_supixs[sup].fit_cost = m_edges[edge].new_fit_cost;
     m_supixs[sup].bic_cost = m_edges[edge].new_bic_cost;
     m_supixs[sup].border   = m_edges[edge].border;
+    m_pSemMat->MeanZ(m_supixs[sup].pixs, m_supixs[sup].sem_score);
 }
 
 void SuperPixelMerger::ComputeGraphWeights(){
@@ -200,9 +208,6 @@ void SuperPixelMerger::ComputeGraphWeights(){
     // compute edge's weight.
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         ComputeEdgeWeights(it->first);
-
-        Seed_1D merge_seed(it->first, m_edges[it->first].mergecost);
-        m_merge_seeds.push(merge_seed);
     }
 }
 
@@ -240,7 +245,7 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
                 minP = min(ref_linebd0[k-bbox0_0].minK, ref_linebd1[k-bbox1_0].minK);   
                 maxP = max(ref_linebd0[k-bbox0_0].maxK, ref_linebd1[k-bbox1_0].maxK);   
             }
-            ref_edge.new_fit_cost += ComputeFitCost(k, minP, maxP, size, is_row); 
+            ref_edge.new_fit_cost += is_row? ComputeFitCost(k, minP, k, maxP, size) : ComputeFitCost(minP, k, maxP, k, size); 
             ref_edge.new_bic_cost += ComputeBICcost(size + 1);
 
             LineBD new_linebd(minP, maxP, size);
@@ -261,10 +266,14 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
         UINT32 px2 = m_borders[bd_k].pix2 % m_wd;
 
         DpSeg dp_seg1, dp_seg2;
-        m_pSegStock->GetDpSegment(dp_seg1, py1, px1, (py1==py2));
-        m_pSegStock->GetDpSegment(dp_seg2, py2, px2, (py1==py2));
-        
-        m_borders[bd_k].edgeval = m_pSegStock->GetAllSegCost(dp_seg1.line, dp_seg1.st, dp_seg2.end, (py1==py2));
+        m_pSegStock->GetDpSegmentByCoord(dp_seg1, py1, px1, (py1==py2? e_seg_h:e_seg_v));
+        m_pSegStock->GetDpSegmentByCoord(dp_seg2, py2, px2, (py1==py2? e_seg_h:e_seg_v));
+       
+        UINT32 y0 = min(dp_seg1.y0, dp_seg2.y0);
+        UINT32 x0 = min(dp_seg1.x0, dp_seg2.x0);
+        UINT32 y1 = max(dp_seg1.y1, dp_seg2.y1);
+        UINT32 x1 = max(dp_seg1.x1, dp_seg2.x1);
+        m_borders[bd_k].edgeval = m_pSegStock->GetAllSegFitError(y0, x0, y1, x1);
         edge_val += m_borders[bd_k].edgeval;
     }
 
@@ -278,15 +287,28 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
+    UINT32 spix0_size = m_supixs[ref_edge.sup1].pixs.size();
+    UINT32 spix1_size = m_supixs[ref_edge.sup2].pixs.size();
+    float size_cost   = 1.0/min(spix0_size, spix1_size);
+    float sem_diff    = _ChiDifference(m_supixs[ref_edge.sup1].sem_score, m_supixs[ref_edge.sup2].sem_score);
+    float sem_cost    = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
     float merge_fit_cost = ref_edge.new_fit_cost - (m_supixs[ref_edge.sup1].fit_cost + m_supixs[ref_edge.sup2].fit_cost);
     float merge_bic_cost = ref_edge.new_bic_cost - (m_supixs[ref_edge.sup1].bic_cost + m_supixs[ref_edge.sup2].bic_cost);
-    ref_edge.mergecost = merge_fit_cost + m_pParam->merge_supix_bic_alpha*merge_bic_cost;
+    ref_edge.mergecost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost + sem_cost;
+    
+    // push new edge to seed stock.
+    Seed_1D merge_seed(edge, ref_edge.mergecost);
+    m_merge_seeds.push(merge_seed);
 }
 
 void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     DistSuperPixel &ref_supix = m_supixs[sup];
     Border        &ref_border = ref_supix.border; 
 
+    // compute semantic score.
+    ref_supix.sem_score.resize(m_num_sem, 0);
+    m_pSemMat->MeanZ(ref_supix.pixs, ref_supix.sem_score);
+    
     // compute bounding box.
     UINT32 py, px;
     for(auto it=m_supixs[sup].pixs.begin(); it != m_supixs[sup].pixs.end(); it++){
@@ -318,11 +340,11 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     UINT32 bbox_wd = ref_border.bbox[3]-x0 + 1;
     float fit_cost = 0.0, bic_cost = 0.0;
     for(UINT32 k = 0; k < bbox_ht; k++){
-        fit_cost += ComputeFitCost(k+y0, ref_linebd_h[k].minK, ref_linebd_h[k].maxK, ref_linebd_h[k].size, true);
+        fit_cost += ComputeFitCost(k+y0, ref_linebd_h[k].minK, k+y0, ref_linebd_h[k].maxK, ref_linebd_h[k].size);
         bic_cost += ComputeBICcost(ref_linebd_h[k].size + 1);
     }
     for(UINT32 k = 0; k < bbox_wd; k++){
-        fit_cost += ComputeFitCost(k+x0, ref_linebd_v[k].minK, ref_linebd_v[k].maxK, ref_linebd_v[k].size, false);
+        fit_cost += ComputeFitCost(ref_linebd_v[k].minK, k+x0, ref_linebd_v[k].maxK, k+x0, ref_linebd_v[k].size);
         bic_cost += ComputeBICcost(ref_linebd_v[k].size + 1);
     }
 
@@ -330,18 +352,16 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
     ref_supix.bic_cost = bic_cost;
 }
 
-float SuperPixelMerger::ComputeFitCost(UINT32 line, UINT32 pix0, UINT32 pix1, UINT32 size, bool is_row){
-    DpSeg dp_seg1, dp_seg2;
-    if (is_row){
-        m_pSegStock->GetDpSegment(dp_seg1, line, pix0, true);
-        m_pSegStock->GetDpSegment(dp_seg2, line, pix1, true);
-    }
-    else{
-        m_pSegStock->GetDpSegment(dp_seg1, pix0, line, false);
-        m_pSegStock->GetDpSegment(dp_seg2, pix1, line, false);
-    }
-    float fit_err  = m_pSegStock->GetAllSegCost(line, dp_seg1.st, dp_seg2.end, is_row);
+float SuperPixelMerger::ComputeFitCost(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1, UINT32 size){
+    DpSeg dp_seg0, dp_seg1;
+    m_pSegStock->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
+    m_pSegStock->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
     
+    UINT32 ny0 = min(dp_seg0.y0, dp_seg1.y0);
+    UINT32 nx0 = min(dp_seg0.x0, dp_seg1.x0);
+    UINT32 ny1 = max(dp_seg0.y1, dp_seg1.y1);
+    UINT32 nx1 = max(dp_seg0.x1, dp_seg1.x1);
+    float fit_err  = m_pSegStock->GetAllSegFitError(ny0, nx0, ny1, nx1);
     return (fit_err * size);
 }
 
