@@ -61,6 +61,11 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     
     supixMerger.Merger();
     maskI = supixMerger.AssignOutputLabel();
+
+
+    // -----------------------
+    // generate tri-probability map.
+
 }
 
 

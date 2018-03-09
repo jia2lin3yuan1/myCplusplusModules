@@ -46,7 +46,7 @@ typedef struct Grow_Segment{
             if(max_sem_score < sem_score[k])
                 max_sem_score = sem_score[k];
         }
-        sem_cost = -log(max_sem_score/(1-max_sem_score+1e-5));
+        sem_cost = -log(max_sem_score/(1-max_sem_score+1e-5));//_NegativeLog(max_sem_score);
     }
 } GrowSeg; // [st, end)
 

@@ -80,6 +80,7 @@ public: //Functions
     void AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
    
     float GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
+    float GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
     
     void GetDpSegmentById(DpSeg &dp_seg, UINT32 id);
     void GetDpSegmentByCoord(DpSeg &dp_seg, UINT32 py, UINT32 px, SegType s_type);
@@ -145,6 +146,19 @@ void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore
 float Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
     Aseg a_seg(y0, x0, y1, x1);
     return m_all_seg[a_seg];
+}
+
+float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
+    DpSeg dp_seg0, dp_seg1;
+    this->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
+    this->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
+    
+    UINT32 ny0 = min(dp_seg0.y0, dp_seg1.y0);
+    UINT32 nx0 = min(dp_seg0.x0, dp_seg1.x0);
+    UINT32 ny1 = max(dp_seg0.y1, dp_seg1.y1);
+    UINT32 nx1 = max(dp_seg0.x1, dp_seg1.x1);
+    
+    return this->GetAllSegFitError(ny0, nx0, ny1, nx1);
 }
 
 void Segment_Stock::GetDpSegmentById(DpSeg &dp_seg, UINT32 id){

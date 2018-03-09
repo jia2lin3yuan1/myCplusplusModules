@@ -126,7 +126,12 @@ public:
     void RemoveEdge(UINT32 edge);
    
     // access the graph.
-    map<UINT32, NODE> * GetSuperPixels(){return &m_supixs;} 
+    vector<UINT32> GetAllSuperPixelsId();
+    NODE &GetSuperPixel(UINT32 sup);
+    vector<UINT32> GetAllEdgesId();
+    EDGE &GetEdge(UINT32 edge);
+    BORDER &GetBorder(UINT32 bd);
+
 
     // virtual function as API.
     virtual void UpdateSuperPixel(UINT32 sup, UINT32 edge){}
@@ -134,7 +139,46 @@ public:
     virtual void ComputeEdgeWeights(UINT32 edge)=0;
 };
 
+// access the graph
+template<typename NODE, typename EDGE, typename BORDER>
+vector<UINT32> Graph<NODE, EDGE, BORDER>::GetAllSuperPixelsId(){
+    vector<UINT32> sup_vec;
+    for(auto ele:m_supixs){
+        sup_vec.push_back(ele.first);
+    }
 
+    return sup_vec;
+}
+template<typename NODE, typename EDGE, typename BORDER>
+NODE &Graph<NODE, EDGE, BORDER>::GetSuperPixel(UINT32 sup){
+    assert(m_supixs.find(sup) != m_supixs.end());
+    return m_supixs[sup];
+}
+
+template<typename NODE, typename EDGE, typename BORDER>
+vector<UINT32> Graph<NODE, EDGE, BORDER>::GetAllEdgesId(){
+    vector<UINT32> edge_vec;
+    for(auto ele:m_edges){
+        edge_vec.push_back(ele.first);
+    }
+
+    return edge_vec;
+}
+
+template<typename NODE, typename EDGE, typename BORDER>
+EDGE &Graph<NODE, EDGE, BORDER>::GetEdge(UINT32 edge){
+    assert(m_edges.find(edge) != m_edges.end());
+    return m_edges[edge];
+}
+
+template<typename NODE, typename EDGE, typename BORDER>
+BORDER &Graph<NODE, EDGE, BORDER>::GetBorder(UINT32 bd){
+    assert(m_borders.find(bd) != m_borders.end());
+    return m_borders[bd];
+}
+
+
+// operators on Graph.
 template<typename NODE, typename EDGE, typename BORDER>
 void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup){
     for(auto it = m_edges[edge1].bd_pixs.begin(); it != m_edges[edge1].bd_pixs.end(); it++){

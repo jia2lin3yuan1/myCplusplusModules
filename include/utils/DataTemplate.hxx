@@ -68,7 +68,7 @@ public:
     // assign value
     void SetData(BT val, UINT32 y, UINT32 x=0, UINT32 z=0);
     void SetDataByIdx(BT val, UINT32 k);
-    void ResetDataFromVector(std::vector<UINT32> idxs, BT val);
+    void ResetDataFromVector(std::vector<UINT32> idxs, BT val, UINT32 z=0);
     void ResetBulkData(BT val, UINT32 y0, UINT32 ys, UINT32 x0=0, UINT32 xs=1, UINT32 z0=0, UINT32 zs =1);
     void Reset(BT val);
     
@@ -130,9 +130,10 @@ void CDataTempl<BT>::SetDataByIdx(BT val, UINT32 k){
     m_pBuf[k] = val;
 }
 template <typename BT>
-void CDataTempl<BT>::ResetDataFromVector(std::vector<UINT32> idxs, BT val){
+void CDataTempl<BT>::ResetDataFromVector(std::vector<UINT32> idxs, BT val, UINT32 z){
+    UINT32 base_k = z * m_yDim * m_xDim;
     for(SINT32 k= idxs.size()-1; k >= 0; k--){
-        m_pBuf[idxs[k]] = val;
+        m_pBuf[idxs[k]+base_k] = val;
     }
 }
 template <typename BT>

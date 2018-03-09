@@ -24,7 +24,7 @@
 
 // #define DEBUG_SEGMENT_MERGE
 
-#define OPEN_DEBUG 0 // output information on console.
+#define OPEN_DEBUG 1 // output information on console.
 
 
 // Global Data Type and Structure.
@@ -126,15 +126,28 @@ typedef struct Global_Parameters{
     float  merge_merger_thr;
 
     // tri-map.
-    float  tri_seed_bic_alpha;
+    UINT32 tri_supix_bic_addi_len;
+    float  tri_supix_bic_scale;
+
+    float  tri_seed_sem_alpha;
     float  tri_seed_fit_alpha;
-    
+    float  tri_notseed_prob_thr;
+   
+    UINT32 tri_edge_bic_addi_len;
+    float  tri_edge_bic_alpha;
+    float  tri_edge_semdiff_thr;
+
+    float  tri_cluster_supix0_prob;
+    float  tri_cluster_prob_thr;
+
+
+    // constructor to assign value
     Global_Parameters(){
         // segment fitting parameters.
-        segFit_dp_semdiff_thr = 0.7;
-        segFit_dp_bic_alpha   = 1e-1;
-        segFit_dp_err_thr     = 5e-2;
-        segFit_dp_inf_err     = 1e3;
+        segFit_dp_semdiff_thr  = 7e-1;
+        segFit_dp_bic_alpha    = 1e-1;
+        segFit_dp_err_thr      = 5e-2;
+        segFit_dp_inf_err      = 1e3;
 
         // segment growing paramters.
         segGrow_seed_sem_alpha = 5e-2;
@@ -142,28 +155,39 @@ typedef struct Global_Parameters{
         segGrow_seed_bic_scale = 5e-1;
         segGrow_seed_size_thr  = 5;
 
-        segGrow_extd_semdiff_thr  = 0.7;
+        segGrow_extd_semdiff_thr      = 7e-1;
 
-        segGrow_shrk_bic_alpha    = 5e-1;
-        segGrow_shrk_bic_addi_len = 2;
-        segGrow_shrk_fit_cost_thr = 5e-2;
+        segGrow_shrk_bic_alpha        = 5e-1;
+        segGrow_shrk_bic_addi_len     = 2;
+        segGrow_shrk_fit_cost_thr     = 5e-2;
         segGrow_shrk_fit_cost_penalty = 1e3;
-        segGrow_shrk_cost_thr      = 0;
+        segGrow_shrk_cost_thr         = 0;
 
-        segGrow_proposal_size_thr  = 10;
+        segGrow_proposal_size_thr     = 10;
 
         // segment merge.
         merge_supix_bic_addi_len = 1;
         
         merge_edge_bic_alpha     = 5e-1;
-        merge_edge_semdiff_thr   = 0.7;
+        merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e4;
 
         merge_merger_thr         = 1e1;
 
         // tri-map generate
-        tri_seed_bic_alpha = 2e-1;
-        tri_seed_fit_alpha = 1e1;
+        tri_supix_bic_addi_len   = 1;
+        tri_supix_bic_scale      = 1;
+        
+        tri_seed_sem_alpha       = 5e-2;
+        tri_seed_fit_alpha       = 1e0;
+        tri_notseed_prob_thr     = 5e-1;
+    
+        tri_edge_bic_addi_len    = 1;
+        tri_edge_bic_alpha       = 5e-1;
+        tri_edge_semdiff_thr     = 7e-1;
+        
+        tri_cluster_supix0_prob  = 5e-1;
+        tri_cluster_prob_thr     = 4e-1;
     }
 
 }GlbParam;
@@ -181,6 +205,11 @@ float _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){
     }
 
     return diff;
+}
+
+template<typename T>
+float _NegativeLog(T prob){
+    return -log(prob/(1-prob+1e-5));
 }
 
 template<typename T>

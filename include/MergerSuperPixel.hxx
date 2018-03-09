@@ -287,9 +287,6 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
-    UINT32 spix0_size = m_supixs[ref_edge.sup1].pixs.size();
-    UINT32 spix1_size = m_supixs[ref_edge.sup2].pixs.size();
-    float size_cost   = 1.0/min(spix0_size, spix1_size);
     float sem_diff    = _ChiDifference(m_supixs[ref_edge.sup1].sem_score, m_supixs[ref_edge.sup2].sem_score);
     float sem_cost    = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
     float merge_fit_cost = ref_edge.new_fit_cost - (m_supixs[ref_edge.sup1].fit_cost + m_supixs[ref_edge.sup2].fit_cost);
@@ -353,20 +350,12 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
 }
 
 float SuperPixelMerger::ComputeFitCost(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1, UINT32 size){
-    DpSeg dp_seg0, dp_seg1;
-    m_pSegStock->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
-    m_pSegStock->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
-    
-    UINT32 ny0 = min(dp_seg0.y0, dp_seg1.y0);
-    UINT32 nx0 = min(dp_seg0.x0, dp_seg1.x0);
-    UINT32 ny1 = max(dp_seg0.y1, dp_seg1.y1);
-    UINT32 nx1 = max(dp_seg0.x1, dp_seg1.x1);
-    float fit_err  = m_pSegStock->GetAllSegFitError(ny0, nx0, ny1, nx1);
+    float fit_err  = m_pSegStock->GetAllSegFitErrorOnAny2Points(y0, x0, y1, x1);
     return (fit_err * size);
 }
 
 float SuperPixelMerger::ComputeBICcost(UINT32 numPix){
-    return Log_LUT(numPix + m_pParam->merge_supix_bic_addi_len);
+    return log(numPix + m_pParam->merge_supix_bic_addi_len);
 }
 
 
