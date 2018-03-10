@@ -123,6 +123,7 @@ public:
     void ComputeSuperPixelCost(UINT32 sup);
     float ComputeFitCost(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1, UINT32 size);
     float ComputeBICcost(UINT32 numPix);
+    float ComputeSemanticDifference(UINT32 sup0, UINT32 sup1);
 
     // Merge operations
     void Merger();
@@ -135,15 +136,23 @@ public:
 void SuperPixelMerger::PrintOutInformation(){
     cout<<"** super pixels: "<<m_supixs.size()<<endl;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
-        cout<<it->first<<", ";
+        cout<<"*** No. "<<it->first<<",  size: " << (it->second).pixs.size()<<endl;
+        cout<<"  bbox is: "<<(it->second).border.bbox[0]<<", "<<(it->second).border.bbox[1]<<", "<<(it->second).border.bbox[2]<<", "<<(it->second).border.bbox[3]<<endl;
+        cout<<"  semantic score is: "<<endl;
+        for(auto sem: (it->second).sem_score){
+            cout << setprecision(5)<<sem<<", ";
+        }
+        cout << endl<<endl;
     }
     cout<<endl<<endl;
-   
+    
+    /*   
     cout<<"** Edge size: "<<m_edges.size()<<endl;
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         cout<<"("<<it->first<<": "<<(it->second).sup1<<", "<<(it->second).sup2<<", "<<(it->second).bd_pixs.size()<<" ), ";
     }
     cout<<endl;
+    */
 }
 
 void SuperPixelMerger::GetDebugImage(CDataTempl<float> &debugI, UINT32 mode){
@@ -190,6 +199,8 @@ void SuperPixelMerger::Merger(){
         system(py_command.c_str());
 #endif
     }
+
+    PrintOutInformation();
 }
 
 void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
@@ -287,7 +298,7 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
-    float sem_diff    = _ChiDifference(m_supixs[ref_edge.sup1].sem_score, m_supixs[ref_edge.sup2].sem_score);
+    float sem_diff    = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
     float sem_cost    = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
     float merge_fit_cost = ref_edge.new_fit_cost - (m_supixs[ref_edge.sup1].fit_cost + m_supixs[ref_edge.sup2].fit_cost);
     float merge_bic_cost = ref_edge.new_bic_cost - (m_supixs[ref_edge.sup1].bic_cost + m_supixs[ref_edge.sup2].bic_cost);
@@ -358,6 +369,9 @@ float SuperPixelMerger::ComputeBICcost(UINT32 numPix){
     return log(numPix + m_pParam->merge_supix_bic_addi_len);
 }
 
+float SuperPixelMerger::ComputeSemanticDifference(UINT32 sup0, UINT32 sup1){
+    return _ChiDifference(m_supixs[sup0].sem_score, m_supixs[sup1].sem_score);
+}
 
 
 #endif

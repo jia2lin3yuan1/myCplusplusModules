@@ -4,6 +4,19 @@
 #include "utils/read_write_img.hxx"
 using namespace std;
 
+typedef struct SegmentFitResult{
+    float  fit_err;
+    float  w[2];
+    float  b[2];
+    UINT32 ch[2];
+    SegmentFitResult(){
+        fit_err = 0;
+        w[0] = 0;  w[1] = 0;
+        b[0] = 0;  b[1] = 0;
+        ch[0] = 0; ch[1] = 0;
+    }
+}SegFitRst;
+
 typedef struct SegmentInformation{
     float fit_err;
     vector<float> sem_score;
@@ -47,7 +60,6 @@ typedef struct DP_Segment{
 
 
 enum SegType {e_seg_h=0, e_seg_v,  e_seg_type_num};
-
 /*
  * Class: SegmentStock.
  * There are two kind of segments in the stock:
@@ -58,11 +70,12 @@ class Segment_Stock{
 
 protected:
     // Variables.
-    map<Aseg, float, AsegCmp> m_all_seg;
+    map<Aseg, SegFitRst, AsegCmp> m_all_seg;
     map<UINT32, DpSeg>  m_dp_seg;
 
     UINT32 m_ht, m_wd;
     CDataTempl<UINT32> m_dp_segInfo;
+    CDataTempl<UINT32> m_all_segIdx;
 
     // Parameter.
 
@@ -70,17 +83,19 @@ public: //Functions
     Segment_Stock(UINT32 ht, UINT32 wd){
         m_ht = ht;   m_wd = wd;
         m_dp_segInfo.Init(ht, wd, e_seg_type_num);
+        m_all_segIdx.Init(ht, wd, e_seg_type_num*2);
     }
 
     CDataTempl<UINT32> &GetSegmentLabelImage(){
-        return m_dp_segInfo;
+        return m_all_segIdx;//m_dp_segInfo;
     }
 
-    void AssignAllSegments(CDataTempl<float> &seg_info, vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
+    void AssignAllSegments(CDataTempl<float> &seg_info, vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch);
     void AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
    
     float GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
     float GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
+    SegFitRst &GetAllSegFitResultOnAny2Points(UINT32 &y0, UINT32 &x0, UINT32 &y1, UINT32 &x1); 
     
     void GetDpSegmentById(DpSeg &dp_seg, UINT32 id);
     void GetDpSegmentByCoord(DpSeg &dp_seg, UINT32 py, UINT32 px, SegType s_type);
@@ -89,19 +104,46 @@ public: //Functions
 };
 
 
-void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
-    // assign segments.
+void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch){
+    
+    // assign segments to segment stock
     for(int k0=0; k0<all_idxs.size()-1; k0++){
         UINT32 y0 = ptY[all_idxs[k0]];
         UINT32 x0 = ptX[all_idxs[k0]];
-       
+        
         for(int k1=k0+1; k1 < all_idxs.size(); k1++){
             UINT32 y1 = ptY[all_idxs[k1]];
             UINT32 x1 = ptX[all_idxs[k1]];
            
             Aseg a_seg(y0, x0, y1, x1);
-            m_all_seg[a_seg] = seg_info.GetData(k0, k1);
+            m_all_seg[a_seg].fit_err = seg_info.GetData(k0, k1, 0);
+            m_all_seg[a_seg].w[0]    = seg_info.GetData(k0, k1, 1);
+            m_all_seg[a_seg].b[0]    = seg_info.GetData(k0, k1, 2);
+            m_all_seg[a_seg].ch[0]   = dist_ch[0];
+            
+            m_all_seg[a_seg].w[1]    = seg_info.GetData(k0, k1, 3);
+            m_all_seg[a_seg].b[1]    = seg_info.GetData(k0, k1, 4);
+            m_all_seg[a_seg].ch[1]   = dist_ch[1];
         }
+    }
+    
+    // record index information
+    UINT32 y0 = ptY[all_idxs[0]];
+    UINT32 x0 = ptX[all_idxs[0]];
+    for(int k0=1; k0<all_idxs.size(); k0++){
+        UINT32 y1 = ptY[all_idxs[k0]];
+        UINT32 x1 = ptX[all_idxs[k0]];
+        if(y1==y0){
+            x1 = x1==m_wd-1? m_wd : x1;
+            m_all_segIdx.ResetBulkData(all_idxs[k0-1], y0, 1, x0, x1-x0, e_seg_h*2, 1);
+            m_all_segIdx.ResetBulkData(all_idxs[k0], y0, 1, x0, x1-x0, e_seg_h*2+1, 1);
+        }
+        else{
+            y1 = y1==m_ht-1? m_ht : y1;
+            m_all_segIdx.ResetBulkData(all_idxs[k0-1], y0, y1-y0, x0, 1, e_seg_v*2, 1);
+            m_all_segIdx.ResetBulkData(all_idxs[k0], y0, y1-y0, x0, 1, e_seg_v*2+1, 1);
+        }
+        y0 = y1;  x0 = x1;
     }
 }
 
@@ -145,7 +187,7 @@ void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore
 
 float Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
     Aseg a_seg(y0, x0, y1, x1);
-    return m_all_seg[a_seg];
+    return m_all_seg[a_seg].fit_err;
 }
 
 float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
@@ -159,6 +201,22 @@ float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 
     UINT32 nx1 = max(dp_seg0.x1, dp_seg1.x1);
     
     return this->GetAllSegFitError(ny0, nx0, ny1, nx1);
+}
+SegFitRst &Segment_Stock::GetAllSegFitResultOnAny2Points(UINT32 &y0, UINT32 &x0, UINT32 &y1, UINT32 &x1){
+    
+    // find closest st, end.
+    if(y0 == y1){
+        x0 = m_all_segIdx.GetData(y0, x0, e_seg_h*2); 
+        x1 = m_all_segIdx.GetData(y1, x1, e_seg_h*2+1); 
+    }
+    else{
+        y0 = m_all_segIdx.GetData(y0, x0, e_seg_v*2); 
+        y1 = m_all_segIdx.GetData(y1, x1, e_seg_v*2+1); 
+    }
+    
+    // Get all_seg with updated (y0, x0, y1, x1). 
+    Aseg a_seg(y0, x0, y1, x1);
+    return m_all_seg[a_seg];
 }
 
 void Segment_Stock::GetDpSegmentById(DpSeg &dp_seg, UINT32 id){

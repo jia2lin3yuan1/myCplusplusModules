@@ -3,7 +3,7 @@
 
 #include "SegmentGrow.hxx"
 #include "MergerSuperPixel.hxx"
-
+#include "TriMapGenerate.hxx"
 
 template<typename OUT_TYPE>
 void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<OUT_TYPE> &maskI){
@@ -52,20 +52,25 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     supixMerger.AssignInputLabel(&segLabelI);
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
+    supixMerger.Merger();
 
-#ifdef DEBUG_SEGMENT_MERGE_DEBUG
-    CDataTempl<float> debugI(imgHt, imgWd);
-    supixMerger.GetDebugImage(debugI);
-    maskI = debugI;
+#ifdef DEBUG_SEGMENT_MERGE
+    if (false){
+        CDataTempl<float> debugI(imgHt, imgWd);
+        supixMerger.GetDebugImage(debugI);
+        //maskI = debugI;
+    }
+    else
+        maskI = supixMerger.AssignOutputLabel();
 #endif
     
-    supixMerger.Merger();
-    maskI = supixMerger.AssignOutputLabel();
 
 
     // -----------------------
     // generate tri-probability map.
-
+    Trimap_Generate trimapGen(&supixMerger, &segStock, &semM, &distM, &glbParam);
+    trimapGen.GreedyGenerateTriMap();
+    trimapGen.GetOutputData(maskI);
 }
 
 

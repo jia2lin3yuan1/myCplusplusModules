@@ -126,6 +126,7 @@ public:
     void RemoveEdge(UINT32 edge);
    
     // access the graph.
+    CDataTempl<UINT32> &GetSuperPixelIdImage();
     vector<UINT32> GetAllSuperPixelsId();
     NODE &GetSuperPixel(UINT32 sup);
     vector<UINT32> GetAllEdgesId();
@@ -325,5 +326,13 @@ CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     return m_outLabelI;
 }
 
+template<typename NODE, typename EDGE, typename BORDER>
+CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::GetSuperPixelIdImage(){
+    for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
+        m_outLabelI.ResetDataFromVector((it->second).pixs, it->first);
+    }
+
+    return m_outLabelI;
+}
 
 #endif

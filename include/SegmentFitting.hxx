@@ -71,7 +71,7 @@ protected:
     // find key points given point list.
     void FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, const vector<UINT32> &ptX, UINT32 *dist_ch, vector<UINT32> &out_key_idxs);
     // attribute of segment starting at key_idxs[stK]:
-    vector<float> FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
+    vector<vector<float> > FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
                                     const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs);
     void SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK, 
                                     const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs);
@@ -134,7 +134,7 @@ void Segment_Fit::SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK,
  *     ptY/ptX: all points.
  *     key_idxs: index of key points.
  */
-vector<float> Segment_Fit::FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
+vector<vector<float> > Segment_Fit::FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
                                             const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs){
     // compute acc_y, acc_xy, acc_y_2
     vector<float> acc_y(len, 0);
@@ -154,7 +154,7 @@ vector<float> Segment_Fit::FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32
 
     // compute w and b for segments starting at stK and ending at latter key points
     UINT32 idx_len = key_idxs.size();
-    vector<float> fit_err(idx_len, 0.);
+    vector<vector<float> > fit_err(idx_len, vector<float>(3, 0.0));
     for(UINT32 k =stK+1; k < idx_len; k ++){
         UINT32 tk = key_idxs[k] - key_idxs[stK]; // length of segments [point_stK, point_k]
         float w, b;
@@ -170,8 +170,10 @@ vector<float> Segment_Fit::FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32
         float term_0  = w*w*m_lutX.GetData(tk, 0) + 2*w*b*m_lutX.GetData(tk, 1) + b*b*(m_lutX.GetData(tk, 5)+1);
         float term_1  = 2*(w*acc_xy[tk] + b*acc_y[tk]);
         float err_sum = term_0 - term_1 + acc_y_2[tk];
-        err_sum        = err_sum>=0? err_sum : -err_sum;
-        fit_err[k]     = err_sum/max(min(acc_y[tk], meanY * (m_lutX.GetData(tk, 5)+1)), float(1e-9));
+        err_sum       = err_sum>=0? err_sum : -err_sum;
+        fit_err[k][0] = err_sum/max(min(acc_y[tk], meanY * (m_lutX.GetData(tk, 5)+1)), float(1e-9));
+        fit_err[k][1] = w;
+        fit_err[k][2] = b;
     }
 
     return fit_err;
@@ -231,15 +233,20 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
        
         // compute information for each small segment.
         UINT32 num_key = key_idxs.size();
-        CDataTempl<float> segInfo(num_key, num_key);
-        map<Mkey_2D, vector<float>, MKey2DCmp> semScore;
+        CDataTempl<float> segInfo(num_key, num_key, 5);
+        map<Mkey_2D, vector<float>, MKey2DCmp>      semScore;
+        map<Mkey_2D, map<string, float>, MKey2DCmp> fitResult;
         for(UINT32 j=0; j < num_key-1; j++){
             UINT32 len_2end = num_pt - key_idxs[j];
-            vector<float> fit_err_0 = FitErrorStartFrom(dist_ch[0], meanD[0], len_2end, j, ptYs, ptXs, key_idxs); 
-            vector<float> fit_err_1 = FitErrorStartFrom(dist_ch[1], meanD[1], len_2end, j, ptYs, ptXs, key_idxs); 
+            vector<vector<float> > fit_err_0 = FitErrorStartFrom(dist_ch[0], meanD[0], len_2end, j, ptYs, ptXs, key_idxs); 
+            vector<vector<float> > fit_err_1 = FitErrorStartFrom(dist_ch[1], meanD[1], len_2end, j, ptYs, ptXs, key_idxs); 
             SemanticScoreStartFrom(semScore, len_2end, j, ptYs, ptXs, key_idxs);
             for(UINT32 i=j+1; i<key_idxs.size(); i++){
-                segInfo.SetData(fit_err_0[i]+fit_err_1[i], j, i);
+                segInfo.SetData(fit_err_0[i][0]+fit_err_1[i][0], j, i, 0);
+                segInfo.SetData(fit_err_0[i][1], j, i, 1);
+                segInfo.SetData(fit_err_0[i][2], j, i, 2);
+                segInfo.SetData(fit_err_1[i][1], j, i, 3);
+                segInfo.SetData(fit_err_1[i][2], j, i, 4);
             }
         }
 
@@ -248,7 +255,7 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
         DP_segments(segInfo, semScore, ptYs, ptXs, key_idxs, dp_idxs);
 
         // Save segment information to segment stock.
-        pSegStock->AssignAllSegments(segInfo, key_idxs, ptYs, ptXs);
+        pSegStock->AssignAllSegments(segInfo, key_idxs, ptYs, ptXs, dist_ch);
         pSegStock->AssignDpSegments(segInfo, semScore, dp_idxs, ptYs, ptXs);
     }
 }
