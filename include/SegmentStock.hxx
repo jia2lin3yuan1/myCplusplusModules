@@ -195,12 +195,12 @@ float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 
     this->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
     this->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
     
-    UINT32 ny0 = min(dp_seg0.y0, dp_seg1.y0);
-    UINT32 nx0 = min(dp_seg0.x0, dp_seg1.x0);
-    UINT32 ny1 = max(dp_seg0.y1, dp_seg1.y1);
-    UINT32 nx1 = max(dp_seg0.x1, dp_seg1.x1);
+    y0 = min(dp_seg0.y0, dp_seg1.y0);
+    x0 = min(dp_seg0.x0, dp_seg1.x0);
+    y1 = max(dp_seg0.y1, dp_seg1.y1);
+    x1 = max(dp_seg0.x1, dp_seg1.x1);
     
-    return this->GetAllSegFitError(ny0, nx0, ny1, nx1);
+    return this->GetAllSegFitError(y0, x0, y1, x1);
 }
 SegFitRst &Segment_Stock::GetAllSegFitResultOnAny2Points(UINT32 &y0, UINT32 &x0, UINT32 &y1, UINT32 &x1){
     

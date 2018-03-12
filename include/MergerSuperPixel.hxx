@@ -136,6 +136,7 @@ public:
 void SuperPixelMerger::PrintOutInformation(){
     cout<<"** super pixels: "<<m_supixs.size()<<endl;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
+        auto &supix = it->second;
         cout<<"*** No. "<<it->first<<",  size: " << (it->second).pixs.size()<<endl;
         cout<<"  bbox is: "<<(it->second).border.bbox[0]<<", "<<(it->second).border.bbox[1]<<", "<<(it->second).border.bbox[2]<<", "<<(it->second).border.bbox[3]<<endl;
         cout<<"  semantic score is: "<<endl;
@@ -146,10 +147,14 @@ void SuperPixelMerger::PrintOutInformation(){
     }
     cout<<endl<<endl;
     
-    /*   
-    cout<<"** Edge size: "<<m_edges.size()<<endl;
+    
+    /*
+    cout<<"---------------"<<endl<<"** Edge's information. "<<endl;
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
-        cout<<"("<<it->first<<": "<<(it->second).sup1<<", "<<(it->second).sup2<<", "<<(it->second).bd_pixs.size()<<" ), ";
+        cout<<"  * id "<<it->first<<" :: ("<<(it->second).sup1<<", "<<(it->second).sup2<<" )"<<endl;
+        cout<<"     edge cost is: "<<(it->second).new_bic_cost<<", "<<(it->second).new_fit_cost<<", "<<(it->second).mergecost<<endl;
+        cout<<"             sup1: "<<m_supixs[(it->second).sup1].bic_cost<<", "<<m_supixs[(it->second).sup1].fit_cost<<", size: "<<m_supixs[(it->second).sup1].pixs.size()<<endl;
+        cout<<"             sup2: "<<m_supixs[(it->second).sup2].bic_cost<<", "<<m_supixs[(it->second).sup2].fit_cost<<", size: "<<m_supixs[(it->second).sup2].pixs.size()<<endl;
     }
     cout<<endl;
     */
@@ -199,8 +204,7 @@ void SuperPixelMerger::Merger(){
         system(py_command.c_str());
 #endif
     }
-
-    PrintOutInformation();
+    //PrintOutInformation();
 }
 
 void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
@@ -240,8 +244,6 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
         vector<LineBD> &ref_linebd1 = is_row? supix1.border.border_h : supix1.border.border_v;
         vector<LineBD> &ref_edge_linebd = is_row? ref_edge.border.border_h : ref_edge.border.border_v;
         for(UINT32 k=ref_edge.border.bbox[ch0]; k<=ref_edge.border.bbox[ch1]; k++){
-            if(ref_edge.sup1==2 && ref_edge.sup2==30 && k==318)
-                int a = 0;
             UINT32 minP, maxP, size;
             if(k < bbox0_0 || k > bbox0_1){
                 size = ref_linebd1[k-bbox1_0].size;

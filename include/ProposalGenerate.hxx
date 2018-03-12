@@ -65,12 +65,16 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
 #endif
     
 
-
+#ifdef DEBUG_FINAL_TRIMAP
     // -----------------------
-    // generate tri-probability map.
+    //generate tri-probability map.
     Trimap_Generate trimapGen(&supixMerger, &segStock, &semM, &distM, &glbParam);
     trimapGen.GreedyGenerateTriMap();
     trimapGen.GetOutputData(maskI);
+#else
+    maskI = supixMerger.GetSuperPixelIdImage();
+#endif
+
 }
 
 

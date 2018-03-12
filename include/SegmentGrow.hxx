@@ -103,9 +103,7 @@ public:
         
         InitialSetGrowSegments();
     }
-    CDataTempl<UINT32>& GetFinalResult(){
-        return m_out_maskI;
-    }
+    CDataTempl<UINT32>& GetFinalResult();
     CDataTempl<float>& GetDebugInformation();
     
     
@@ -128,6 +126,83 @@ public:
     void ResetBorderHV();
 };
 
+CDataTempl<UINT32>& Segment_Grow::GetFinalResult(){
+    auto ProcessOnePoint = [&](SINT32 y, SINT32 x, auto &oriI, auto &distI){
+        // traverse all neighboor pixels, find the min distance to label pixels.
+        UINT32 min_nei_dist = m_ht+m_wd;
+        for(SINT32 sy=-1; sy<= 0; sy++){
+            for(SINT32 sx=-1; sx <=1; sx ++){
+                if(distI.GetData(y+sy, x+sx)>0)
+                    min_nei_dist = min(min_nei_dist, distI.GetData(y+sy, x+sx));
+            }
+        }
+        min_nei_dist = min_nei_dist==m_ht+m_wd? 2 : min_nei_dist;
+        
+        // go through ring with distance min_nei_dist-1, min_nei_dist, min_nei_dist+1. 
+        // to find which label should assign to this pixel.
+        for(SINT32 sk=-1; sk<=1; sk++){
+            SINT32 win    = min_nei_dist+sk;
+            // left line
+            for(SINT32 sy = -win; sy <= win; sy ++){
+                if(oriI.GetData(y+sy, x-win)>0){
+                    m_out_maskI.SetData(oriI.GetData(y+sy, x-win), y, x);
+                    distI.SetData(win, y, x);
+                    return;
+                }
+            }
+            // upper line
+            for(SINT32 sx = -win; sx <= win; sx ++){
+                if(oriI.GetData(y-win, x+sx)>0){
+                    m_out_maskI.SetData(oriI.GetData(y-win, x+sx), y, x);
+                    distI.SetData(win, y, x);
+                    return;
+                }
+            }
+            // right line
+            for(SINT32 sy = -win; sy <= win; sy ++){
+                if(oriI.GetData(y+sy, x+win)>0){
+                    m_out_maskI.SetData(oriI.GetData(y+sy, x+win), y, x);
+                    distI.SetData(win, y, x);
+                    return;
+                }
+            }
+            // bottom line
+            for(SINT32 sx = -win; sx <= win; sx ++){
+                if(oriI.GetData(y+win, x+sx)>0){
+                    m_out_maskI.SetData(oriI.GetData(y+win, x+sx), y, x);
+                    distI.SetData(win, y, x);
+                    return;
+                }
+            }
+        } 
+    };
+    if(m_pParam->segGrow_rm_label0){
+        CDataTempl<UINT32> distI(m_ht, m_wd);
+        CDataTempl<UINT32> ori_labelI(m_ht, m_wd);
+        ori_labelI.Copy(m_out_maskI);
+
+        // clockwise order
+        for(SINT32 y = 0; y < m_ht; y++){
+            for(SINT32 x = 0; x < m_wd; x++){
+                if(ori_labelI.GetData(y, x) > 0)
+                    continue;
+                else
+                    ProcessOnePoint(y, x, ori_labelI, distI);
+            }
+        }
+        // inverse order. 
+        for(SINT32 y = m_ht-1; y >= 0; y--){
+            for(SINT32 x = m_wd-1; x >= 0; x--){
+                if(m_out_maskI.GetData(y, x) > 0)
+                    continue;
+                else
+                    ProcessOnePoint(y, x, ori_labelI, distI);
+            }
+        }
+    }
+
+    return m_out_maskI;
+}
 CDataTempl<float>& Segment_Grow::GetDebugInformation(){
     UINT32 num_Seg = m_grow_seg.size();
     for(UINT32 k =0; k < num_Seg; k++){

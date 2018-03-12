@@ -103,6 +103,7 @@ float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, 
                                     UINT32 sk0, UINT32 sk1, UINT32 ssup, CDataTempl<UINT32> &supixIdMap){
     SegFitRst &segInfo = m_pSegStock->GetAllSegFitResultOnAny2Points(hy0, hx0, hy1, hx1);
     float fit_diff = 0;
+    UINT32 fit_cnt = 0;
     if(hy0==hy1){
         for(int x = sk0; x <= sk1; x ++){
             if(supixIdMap.GetData(hy0, x) != ssup)
@@ -113,7 +114,8 @@ float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, 
             fit_diff   += pow(truth - hat, 2); 
             hat         =  (x-(int)hx0)*segInfo.w[1] + segInfo.b[1];
             truth       = m_pDistMat->GetData(hy0, x, segInfo.ch[1]);
-            fit_diff   += pow(truth - hat, 2); 
+            fit_diff   += pow(truth - hat, 2);
+            fit_cnt    += 1;
         }
     }
     else{
@@ -127,10 +129,11 @@ float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, 
             hat         = (y-(int)hy0)*segInfo.w[1] + segInfo.b[1];
             truth       = m_pDistMat->GetData(y, hx0, segInfo.ch[1]);
             fit_diff   += pow(truth - hat, 2); 
+            fit_cnt    += 1;
         }
     }
 
-    return fit_diff;
+    return fit_diff/fit_cnt;
 }
 
 void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
@@ -156,26 +159,27 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
 
         // H direction
         float fit_diff_h = 0;
-        vector<LineBD> &linebd_h = supix_h.border.border_h;
-        vector<LineBD> &linebd_s = supix_s.border.border_h;
+        vector<LineBD> &linebd_h_h = supix_h.border.border_h;
+        vector<LineBD> &linebd_s_h = supix_s.border.border_h;
         for(UINT32 k = cov_y0; k <= cov_y1; k++){
             UINT32 hk     = k - p_bbox_h[0];
             UINT32 sk     = k - p_bbox_s[0];
-            
-            fit_diff_h += ComputeFitDifference(k, linebd_h[hk].minK, k, linebd_h[hk].maxK, 
-                                                 linebd_s[sk].minK, linebd_s[sk].maxK, sup_spec, supixIdMap);
+            fit_diff_h   += ComputeFitDifference(k, linebd_h_h[hk].minK, k, linebd_h_h[hk].maxK, 
+                                              linebd_s_h[sk].minK, linebd_s_h[sk].maxK, sup_spec, supixIdMap);
         }
+        fit_diff_h = fit_diff_h / (cov_y0<= cov_y1? cov_y1-cov_y0+1 : 1);
         
         // V direction.
         float fit_diff_v = 0;
-        linebd_h = supix_h.border.border_v;
-        linebd_s = supix_s.border.border_v;
+        vector<LineBD> &linebd_h_v = supix_h.border.border_v;
+        vector<LineBD> &linebd_s_v = supix_s.border.border_v;
         for(UINT32 k = cov_x0; k <= cov_x1; k++){
             UINT32 hk     = k - p_bbox_h[1];
             UINT32 sk     = k - p_bbox_s[1];
-            fit_diff_v += ComputeFitDifference(linebd_h[hk].minK, k, linebd_h[hk].maxK, k, 
-                                                 linebd_s[sk].minK, linebd_s[sk].maxK, sup_spec, supixIdMap);
+            fit_diff_v   += ComputeFitDifference(linebd_h_v[hk].minK, k, linebd_h_v[hk].maxK, k, 
+                                                 linebd_s_v[sk].minK, linebd_s_v[sk].maxK, sup_spec, supixIdMap);
         }
+        fit_diff_v = fit_diff_v / (cov_x0<= cov_x1? cov_x1-cov_x0+1 : 1);
 
         float prob_h = cov_y0 < cov_y1? exp(-fit_diff_h * m_pParam->tri_edge_fit_alpha) : 0;
         float prob_v = cov_x0 < cov_x1? exp(-fit_diff_v * m_pParam->tri_edge_fit_alpha) : 0;
@@ -200,8 +204,9 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
         // traverse all other supixs to create TriEdge.
         if(ele == 0)
             continue;
+        cout<<" ** cen "<<ele<<": size = "<<supix.pixs.size()<<",  bbox = ["<<supix.border.bbox[0]<<", "<<supix.border.bbox[1]<<", "<<supix.border.bbox[2]<<", "<<supix.border.bbox[3]<<" ]"<<endl;
         for(auto ele_a : supIds){
-            if(ele_a == 0 || ele==1 || ele_a == ele)
+            if(ele_a == 0 || ele_a==1 || ele_a == ele)
                 continue;
             // create edge.
             Mkey_2D edge_key(ele, ele_a);
@@ -212,8 +217,11 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
             float sem_diff = m_pGraph->ComputeSemanticDifference(ele, ele_a);
             if(sem_diff > m_pParam->tri_edge_semdiff_thr)
                 m_tri_edges[edge_key].edgeval = 0.0;
-            else
+            else{
+                cout<<"     nei "<< ele_a <<":: ";
                 m_tri_edges[edge_key].edgeval = ComputeBelongProb(ele, ele_a);
+                cout<<",   edge_prob = "<<m_tri_edges[edge_key].edgeval<<endl;
+            }
         }
     }
 }
@@ -245,6 +253,7 @@ void Trimap_Generate::GreedyGenerateTriMap(){
             if(it->first == top_node.id0){
                 (it->second).flag = e_tri_seed; 
                 Seed_1D cls_node(m_clusters[top_node.id0], 1.01);
+                (it->second).cluster_probs.push(cls_node);
             }
             else{
                 Mkey_2D mkey(top_node.id0, it->first);
