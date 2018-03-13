@@ -95,45 +95,72 @@ public:
     void GreedyGenerateTriMap();
     void GetOutputData(CDataTempl<float> &out_trimapI);
 
-    float ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, UINT32 hx1, 
+    float ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, UINT32 hx1, UINT32 hsup, 
                  UINT32 sk0, UINT32 sk1, UINT32 ssup, CDataTempl<UINT32> &supixIdMap);
 };
 
-float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, UINT32 hx1, 
+float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, UINT32 hx1, UINT32 hsup,  
                                     UINT32 sk0, UINT32 sk1, UINT32 ssup, CDataTempl<UINT32> &supixIdMap){
-    SegFitRst &segInfo = m_pSegStock->GetAllSegFitResultOnAny2Points(hy0, hx0, hy1, hx1);
     float fit_diff = 0;
     UINT32 fit_cnt = 0;
     if(hy0==hy1){
-        for(int x = sk0; x <= sk1; x ++){
-            if(supixIdMap.GetData(hy0, x) != ssup)
+        UINT32 e_sup, e_x0, e_x1, seg_x0, seg_x1;
+        if(hx1-hx0 > sk1-sk0 || (hx1-hx0==sk1-sk0 && hx0 < sk0)){
+            e_sup = ssup;
+            e_x0 = sk0;     e_x1 = sk1;
+            seg_x0 = hx0;   seg_x1 = hx1;
+        }
+        else{
+            e_sup = hsup;
+            e_x0 = hx0;   e_x1 = hx1;
+            seg_x0 = sk0;   seg_x1 = sk1;
+        }
+
+        // compute error
+        SegFitRst *pSegInfo = &m_pSegStock->GetAllSegFitResultOnAny2Points(hy0, seg_x0, hy1, seg_x1);
+        for(int x = e_x0; x <= e_x1; x ++){
+            if(supixIdMap.GetData(hy0, x) != e_sup)
                 continue;
             
-            float hat   = (x-(int)hx0)*segInfo.w[0] + segInfo.b[0];
-            float truth = m_pDistMat->GetData(hy0, x, segInfo.ch[0]);
+            float hat   = (x-(int)seg_x0)*pSegInfo->w[0] + pSegInfo->b[0];
+            float truth = m_pDistMat->GetData(hy0, x,  pSegInfo->ch[0]);
             fit_diff   += pow(truth - hat, 2); 
-            hat         =  (x-(int)hx0)*segInfo.w[1] + segInfo.b[1];
-            truth       = m_pDistMat->GetData(hy0, x, segInfo.ch[1]);
+            hat         =  (x-(int)seg_x0)*pSegInfo->w[1] + pSegInfo->b[1];
+            truth       = m_pDistMat->GetData(hy0, x,  pSegInfo->ch[1]);
             fit_diff   += pow(truth - hat, 2);
             fit_cnt    += 1;
         }
     }
     else{
-        for(int y = sk0; y <= sk1; y ++){
-            if(supixIdMap.GetData(y, hx0) != ssup)
+        UINT32 e_sup, e_y0, e_y1, seg_y0, seg_y1;
+        if(hy1-hy0 > sk1-sk0 || (hy1-hy0==sk1-sk0 && hy0 < sk0)){
+            e_sup = ssup;
+            e_y0 = sk0;     e_y1 = sk1;
+            seg_y0 = hy0;   seg_y1 = hy1;
+        }
+        else{
+            e_sup = hsup;
+            e_y0 = hy0;   e_y1 = hy1;
+            seg_y0 = sk0;   seg_y1 = sk1;
+        }
+        
+        // compute error
+        SegFitRst *pSegInfo = &m_pSegStock->GetAllSegFitResultOnAny2Points(seg_y0, hx0,  seg_y1, hx1);
+        for(int y = e_y0; y <= e_y1; y ++){
+            if(supixIdMap.GetData(y, hx0) != e_sup)
                 continue;
 
-            float hat   = (y-(int)hy0)*segInfo.w[0] + segInfo.b[0];
-            float truth = m_pDistMat->GetData(y, hx0, segInfo.ch[0]);
+            float hat   = (y-(int)seg_y0)*pSegInfo->w[0] + pSegInfo->b[0];
+            float truth = m_pDistMat->GetData(y, hx0,   pSegInfo->ch[0]);
             fit_diff   += pow(truth - hat, 2); 
-            hat         = (y-(int)hy0)*segInfo.w[1] + segInfo.b[1];
-            truth       = m_pDistMat->GetData(y, hx0, segInfo.ch[1]);
+            hat         = (y-(int)seg_y0)*pSegInfo->w[1] + pSegInfo->b[1];
+            truth       = m_pDistMat->GetData(y, hx0,   pSegInfo->ch[1]);
             fit_diff   += pow(truth - hat, 2); 
             fit_cnt    += 1;
         }
     }
 
-    return fit_diff/fit_cnt;
+    return fit_diff/(fit_cnt==0? 1 : fit_cnt);
 }
 
 void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
@@ -164,7 +191,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
         for(UINT32 k = cov_y0; k <= cov_y1; k++){
             UINT32 hk     = k - p_bbox_h[0];
             UINT32 sk     = k - p_bbox_s[0];
-            fit_diff_h   += ComputeFitDifference(k, linebd_h_h[hk].minK, k, linebd_h_h[hk].maxK, 
+            fit_diff_h   += ComputeFitDifference(k, linebd_h_h[hk].minK, k, linebd_h_h[hk].maxK, sup_host, 
                                               linebd_s_h[sk].minK, linebd_s_h[sk].maxK, sup_spec, supixIdMap);
         }
         fit_diff_h = fit_diff_h / (cov_y0<= cov_y1? cov_y1-cov_y0+1 : 1);
@@ -176,25 +203,53 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
         for(UINT32 k = cov_x0; k <= cov_x1; k++){
             UINT32 hk     = k - p_bbox_h[1];
             UINT32 sk     = k - p_bbox_s[1];
-            fit_diff_v   += ComputeFitDifference(linebd_h_v[hk].minK, k, linebd_h_v[hk].maxK, k, 
+            fit_diff_v   += ComputeFitDifference(linebd_h_v[hk].minK, k, linebd_h_v[hk].maxK, k, sup_host, 
                                                  linebd_s_v[sk].minK, linebd_s_v[sk].maxK, sup_spec, supixIdMap);
         }
         fit_diff_v = fit_diff_v / (cov_x0<= cov_x1? cov_x1-cov_x0+1 : 1);
 
         float prob_h = cov_y0 < cov_y1? exp(-fit_diff_h * m_pParam->tri_edge_fit_alpha) : 0;
         float prob_v = cov_x0 < cov_x1? exp(-fit_diff_v * m_pParam->tri_edge_fit_alpha) : 0;
-        
-        return float(max(prob_h, prob_v));
+       
+        if(cov_y0 > cov_y1)
+            return prob_v;
+        else if(cov_x0 > cov_x1)
+            return prob_h;
+        else
+            return min(prob_h, prob_v);
+    };
+    auto ComputeSeedCost = [&](UINT32 sup){
+        auto &supix = m_pGraph->GetSuperPixel(sup);
+        float cost  = 0;
+
+        // geometric cost
+        float area = supix.pixs.size();
+        float perim = 0;
+        for(auto it:supix.adjacents){
+            auto &edge = m_pGraph->GetEdge(it.second);
+            perim += edge.bd_pixs.size();
+        }
+        float geo_cost = perim / area;
+        cost += geo_cost * m_pParam->tri_seed_geo_alpha;
+
+        // semantic cost
+        float sem_prob        = MaxInVector(supix.sem_score);
+        float sem_cost        = _NegativeLog(sem_prob);
+        cost += sem_cost * m_pParam->tri_seed_sem_alpha;
+
+        // fitting cost.
+        cost += supix.fit_cost * m_pParam->tri_seed_fit_alpha;
+
+        // size cost.
+        cost += 1.0/log(supix.pixs.size());
+        return cost;
     };
 
     // Main process.
     // Create TriNode and new directed edge based on super pixels.
     vector<UINT32> supIds = m_pGraph->GetAllSuperPixelsId();
     for(auto ele: supIds){
-        auto &supix = m_pGraph->GetSuperPixel(ele);
-        float sem_prob        = MaxInVector(supix.sem_score);
-        float sem_cost        = _NegativeLog(sem_prob);
-        m_tri_nodes[ele].cost = 1.0/log(supix.pixs.size()) + m_pParam->tri_seed_fit_alpha*supix.fit_cost + m_pParam->tri_seed_sem_alpha*sem_cost;
+        m_tri_nodes[ele].cost = ComputeSeedCost(ele); 
         m_tri_nodes[ele].flag = e_tri_cand;
 
         // add the triNode as candidate seed.
@@ -204,6 +259,8 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
         // traverse all other supixs to create TriEdge.
         if(ele == 0)
             continue;
+        
+        auto &supix = m_pGraph->GetSuperPixel(ele);
         cout<<" ** cen "<<ele<<": size = "<<supix.pixs.size()<<",  bbox = ["<<supix.border.bbox[0]<<", "<<supix.border.bbox[1]<<", "<<supix.border.bbox[2]<<", "<<supix.border.bbox[3]<<" ]"<<endl;
         for(auto ele_a : supIds){
             if(ele_a == 0 || ele_a==1 || ele_a == ele)
@@ -220,7 +277,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
             else{
                 cout<<"     nei "<< ele_a <<":: ";
                 m_tri_edges[edge_key].edgeval = ComputeBelongProb(ele, ele_a);
-                cout<<",   edge_prob = "<<m_tri_edges[edge_key].edgeval<<endl;
+                cout<<",   edge_prob = "<<setprecision(4)<<m_tri_edges[edge_key].edgeval<<endl;
             }
         }
     }
@@ -259,8 +316,9 @@ void Trimap_Generate::GreedyGenerateTriMap(){
                 Mkey_2D mkey(top_node.id0, it->first);
                 Seed_1D cls_node(m_clusters[top_node.id0], m_tri_edges[mkey].edgeval);
                 (it->second).cluster_probs.push(cls_node);
-                if(m_tri_edges[mkey].edgeval > m_pParam->tri_cluster_prob_thr){
-                    cout << "One rgn "<<it->first<<" is set as crowd. with Prob "<<m_tri_edges[mkey].edgeval<<" belongs to rgn "<<top_node.id0<<endl;
+                
+                if(m_tri_edges[mkey].edgeval > m_pParam->tri_notseed_prob_thr){
+                    cout << "-- rgn "<<it->first<<" is set as crowd. with Prob "<<m_tri_edges[mkey].edgeval<<" belongs to rgn "<<top_node.id0<<endl;
                     (it->second).flag = e_tri_crowd;
                 }
             }

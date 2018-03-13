@@ -24,7 +24,9 @@
 
 // #define DEBUG_SEGMENT_MERGE
 
-#define OPEN_DEBUG 1 // output information on console.
+#define DEBUG_FINAL_TRIMAP
+
+#define OPEN_DEBUG 0 // output information on console.
 
 
 // Global Data Type and Structure.
@@ -115,6 +117,7 @@ typedef struct Global_Parameters{
     float  segGrow_shrk_cost_thr;
 
     UINT32 segGrow_proposal_size_thr;
+    bool   segGrow_rm_label0;
 
     // segment merge.
     UINT32 merge_supix_bic_addi_len;
@@ -131,12 +134,12 @@ typedef struct Global_Parameters{
 
     float  tri_seed_sem_alpha;
     float  tri_seed_fit_alpha;
-    float  tri_notseed_prob_thr;
+    float  tri_seed_geo_alpha;
    
-    UINT32 tri_edge_bic_addi_len;
-    float  tri_edge_bic_alpha;
+    float  tri_edge_fit_alpha;
     float  tri_edge_semdiff_thr;
 
+    float  tri_notseed_prob_thr;
     float  tri_cluster_supix0_prob;
     float  tri_cluster_prob_thr;
 
@@ -147,7 +150,7 @@ typedef struct Global_Parameters{
         segFit_dp_semdiff_thr  = 7e-1;
         segFit_dp_bic_alpha    = 1e-1;
         segFit_dp_err_thr      = 5e-2;
-        segFit_dp_inf_err      = 1e3;
+        segFit_dp_inf_err      = 1e4;
 
         // segment growing paramters.
         segGrow_seed_sem_alpha = 5e-2;
@@ -157,37 +160,38 @@ typedef struct Global_Parameters{
 
         segGrow_extd_semdiff_thr      = 7e-1;
 
-        segGrow_shrk_bic_alpha        = 5e-1;
+        segGrow_shrk_bic_alpha        = 3e-1;
         segGrow_shrk_bic_addi_len     = 2;
         segGrow_shrk_fit_cost_thr     = 5e-2;
-        segGrow_shrk_fit_cost_penalty = 1e3;
+        segGrow_shrk_fit_cost_penalty = 1e4;
         segGrow_shrk_cost_thr         = 0;
 
         segGrow_proposal_size_thr     = 10;
+        segGrow_rm_label0             = true;
 
         // segment merge.
         merge_supix_bic_addi_len = 1;
         
-        merge_edge_bic_alpha     = 5e-1;
+        merge_edge_bic_alpha     = 3e-1;
         merge_edge_semdiff_thr   = 7e-1;
-        merge_edge_semdiff_pnty  = 1e4;
+        merge_edge_semdiff_pnty  = 1e9;
 
-        merge_merger_thr         = 1e1;
+        merge_merger_thr         = 5e0;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;
         tri_supix_bic_scale      = 1;
         
-        tri_seed_sem_alpha       = 5e-2;
-        tri_seed_fit_alpha       = 1e0;
-        tri_notseed_prob_thr     = 5e-1;
+        tri_seed_sem_alpha       = 0;//1e-2;
+        tri_seed_fit_alpha       = 0;
+        tri_seed_geo_alpha       = 5e-1;
     
-        tri_edge_bic_addi_len    = 1;
-        tri_edge_bic_alpha       = 5e-1;
+        tri_edge_fit_alpha       = 1e1;
         tri_edge_semdiff_thr     = 7e-1;
         
+        tri_notseed_prob_thr     = 5e-1;
         tri_cluster_supix0_prob  = 5e-1;
-        tri_cluster_prob_thr     = 4e-1;
+        tri_cluster_prob_thr     = 3e-1;
     }
 
 }GlbParam;

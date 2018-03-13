@@ -49,7 +49,7 @@ template<typename DT>
 void WriteToCSV(CDataTempl<DT> &img, std::string fpath, int imgCh=0){
     UINT32 imgHt = img.GetYDim();
     UINT32 imgWd = img.GetXDim();
-    
+
     std::ofstream outfile(fpath);
     
     for(int row = 0; row < imgHt; ++row){
