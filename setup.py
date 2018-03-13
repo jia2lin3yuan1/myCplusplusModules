@@ -13,7 +13,7 @@ src_include = [np.get_include(), "/home/yuanjial/Code/Python-pure/instanceinfere
 src_libs = []
 src_link_args = ['-g']
 #src_compile_args = ["-std=c++11", "-DIL_STD", "-Wall", "-ggdb"]
-src_compile_args=['-DILOUSESTL','-DIL_STD','-std=c++1y','-O3','-DHAVE_CPP11_INITIALIZER_LISTS']
+src_compile_args=['-Wno-sign-compare', '-DILOUSESTL','-DIL_STD','-std=c++1y','-O3','-DHAVE_CPP11_INITIALIZER_LISTS']
 
 
 ext1 = Extension( "py_distPropsGenerate",

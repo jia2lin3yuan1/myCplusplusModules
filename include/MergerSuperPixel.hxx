@@ -141,10 +141,10 @@ void SuperPixelMerger::PrintOutInformation(){
     cout<<"** super pixels: "<<m_supixs.size()<<endl;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         auto &supix = it->second;
-        cout<<"*** No. "<<it->first<<",  size: " << (it->second).pixs.size()<<endl;
-        cout<<"  bbox is: "<<(it->second).border.bbox[0]<<", "<<(it->second).border.bbox[1]<<", "<<(it->second).border.bbox[2]<<", "<<(it->second).border.bbox[3]<<endl;
+        cout<<"*** No. "<<it->first<<",  size: " << supix.pixs.size()<<endl;
+        cout<<"  bbox is: "<<supix.border.bbox[0]<<", "<<supix.border.bbox[1]<<", "<<supix.border.bbox[2]<<", "<<supix.border.bbox[3]<<endl;
         cout<<"  semantic score is: "<<endl;
-        for(auto sem: (it->second).sem_score){
+        for(auto sem: supix.sem_score){
             cout << setprecision(5)<<sem<<", ";
         }
         cout << endl<<endl;

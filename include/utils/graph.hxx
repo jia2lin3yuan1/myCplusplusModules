@@ -145,6 +145,8 @@ template<typename NODE, typename EDGE, typename BORDER>
 vector<UINT32> Graph<NODE, EDGE, BORDER>::GetAllSuperPixelsId(){
     vector<UINT32> sup_vec;
     for(auto ele:m_supixs){
+        if(ele.first== 0)
+            continue;
         sup_vec.push_back(ele.first);
     }
 
@@ -253,7 +255,6 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     NODE &ref_supix1 = m_supixs[sup1];
     RemoveEdge(ref_supix0.adjacents[sup1]);
     for(auto it=ref_supix1.adjacents.begin(); it != ref_supix1.adjacents.end(); it++){
-        NODE &ref_supix = m_supixs[it->first];
         m_supixs[it->first].adjacents.erase(sup1);
         if(it->first != sup0){
             m_supixs[it->first].adjacents[sup0] = ref_supix0.adjacents[it->first];

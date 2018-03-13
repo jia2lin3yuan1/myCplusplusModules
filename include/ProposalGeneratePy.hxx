@@ -3,6 +3,7 @@
 
 #include "SegmentGrow.hxx"
 #include "MergerSuperPixel.hxx"
+#include "TriMapGenerate.hxx"
 
 
 /*
@@ -35,8 +36,12 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     
     // prepare output variable
     UINT32 cnt = 0;
-    CDataTempl<UINT32> out_labelI(imgHt, imgWd);
 
+#ifdef DEBUG_FINAL_TRIMAP
+    CDataTempl<float> out_labelI;
+#else
+    CDataTempl<UINT32> out_labelI;
+#endif
     // global parameter.
     GlbParam glbParam;
 
@@ -93,11 +98,19 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     maskI = debugI;
     */
     supixMerger.Merger();
-    out_labelI = supixMerger.AssignOutputLabel();
 
+    
+#ifdef DEBUG_FINAL_TRIMAP
     // ----------------------------
     // generate trimap for different instance proposals.
-
+    std::cout<<"step 4: Generate TriMap. "<<std::endl; 
+    Trimap_Generate trimapGen(&supixMerger, &segStock, &semM, &distM, &glbParam);
+    trimapGen.GreedyGenerateTriMap();
+    std::cout<<"Growing done."<<std::endl;
+    trimapGen.GetOutputData(out_labelI);
+#else
+    out_labelI = supixMerger.AssignOutputLabel();
+#endif
 
 
     // ------------------------------------

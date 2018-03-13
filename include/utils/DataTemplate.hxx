@@ -195,9 +195,9 @@ void CDataTempl<BT>::Add(const CDataTempl<BT> &data0, const CDataTempl<BT> &data
 // fetching data.
 template <typename BT>
 BT CDataTempl<BT>::GetData(SINT32 y, SINT32 x, SINT32 z) const {
-    y = y<0? 0 : (y> m_yDim-1? m_yDim-1 : y);
-    x = x<0? 0 : (x> m_xDim-1? m_xDim-1 : x);
-    z = z<0? 0 : (z> m_zDim-1? m_zDim-1 : z);
+    y = y<0? 0 : (y> SINT32(m_yDim)-1? SINT32(m_yDim)-1 : y);
+    x = x<0? 0 : (x> SINT32(m_xDim)-1? SINT32(m_xDim)-1 : x);
+    z = z<0? 0 : (z> SINT32(m_zDim)-1? SINT32(m_zDim)-1 : z);
     return m_pBuf[this->Coordinate2Index(y,x,z)];
 }
 template <typename BT>

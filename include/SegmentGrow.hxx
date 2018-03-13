@@ -563,11 +563,12 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             UINT32 glb_flag =  ext_hor? m_out_maskI.GetData(gw_seg.y0, sk) : m_out_maskI.GetData(sk, gw_seg.x0);
             
             // if the pixel could be extended.
-            if(mask_id == ms_BG && glb_flag==0)
+            if(mask_id == ms_BG && glb_flag==0){
                 if(ext_hor)
                     mask.SetData(ms_POS_FG, gw_seg.y0, sk);
                 else
                     mask.SetData(ms_POS_FG, sk, gw_seg.x0);
+            }
         }
 
         // set edge pixel to bdPair, used as seed for shrink processing.
@@ -576,11 +577,12 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             bdPair.push_back(make_pair(gw_seg.y0, gw_seg.x0));
         
         UINT32 mask_end_id = ext_hor? mask.GetData(gw_seg.y1, gw_seg.x1-1) : mask.GetData(gw_seg.y1-1, gw_seg.x1);
-        if(mask_end_id == ms_POS_FG)
+        if(mask_end_id == ms_POS_FG){
             if(ext_hor)
                 bdPair.push_back(make_pair(gw_seg.y1, gw_seg.x1-1));
             else
                 bdPair.push_back(make_pair(gw_seg.y1-1, gw_seg.x1));
+        }
     }
 }
 
