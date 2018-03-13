@@ -98,7 +98,7 @@ class Graph{
 protected:
     map<UINT32, BORDER> m_borders;
     map<UINT32, EDGE>   m_edges;
-    map<UINT32, NODE>   m_supixs;
+    map<UINT32, NODE>   m_supixs;  // super pixel starting from label 1. label 0 is assigned to uneffective pixels and out-of-boundary case.
 
     const CDataTempl<UINT32>  *m_pInLabelI;
     CDataTempl<UINT32>         m_outLabelI;
@@ -265,12 +265,12 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
 
 template<typename NODE, typename EDGE, typename BORDER>
 void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
-    auto CollectNeighbour = [&](UINT32 cur_idx, UINT32 cur_label, UINT32 &bd_cnt, UINT32 &edge_cnt, UINT32 step){
-        UINT32 nei_label = m_pInLabelI->GetDataByIdx(cur_idx + step);
+    auto CollectNeighbour = [&](UINT32 cur_idx, UINT32 cur_label, UINT32 nei_idx, UINT32 &bd_cnt, UINT32 &edge_cnt){
+        UINT32 nei_label = nei_idx < m_ht*m_wd? m_pInLabelI->GetDataByIdx(nei_idx) : 0;
         
         // new border pixel
-        if(nei_label != cur_label && nei_label != 0){
-            BndryPix bd_pix(cur_idx, cur_idx+step, cur_label, nei_label);
+        if(nei_label != cur_label){
+            BndryPix bd_pix(cur_idx, nei_idx, cur_label, nei_label);
             m_borders[bd_cnt] = bd_pix;
 
             // check if the new supix is already added into superpixel's adjacent.
@@ -294,6 +294,7 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
     };
 
     // Main process
+    UINT32 outImg_idx = m_ht*m_wd+1;
     UINT32 bd_cnt   = 0;
     UINT32 edge_cnt = 0;
     for(UINT32 py = 0; py < m_ht; py++){
@@ -303,14 +304,19 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
             
             // add the pixel to super pixel.
             m_supixs[pix_label].pixs.push_back(pix_idx);
-            if(pix_label == 0) // ignore label 0
-                continue;
 
             // look to pixel on the right and bottom side, check if exists borders.
             if(px < m_wd-1)
-                CollectNeighbour(pix_idx, pix_label, bd_cnt, edge_cnt, 1);
+                CollectNeighbour(pix_idx, pix_label, pix_idx+1, bd_cnt, edge_cnt);
             if(py < m_ht-1)
-                CollectNeighbour(pix_idx, pix_label, bd_cnt, edge_cnt, m_wd);
+                CollectNeighbour(pix_idx, pix_label, pix_idx+m_wd, bd_cnt, edge_cnt);
+
+            // check if it's image boundary.
+            if(px == 0 || px==m_wd-1)
+                CollectNeighbour(pix_idx, pix_label, outImg_idx, bd_cnt, edge_cnt);
+        
+            if(py == 0 || py==m_ht-1)
+                CollectNeighbour(pix_idx, pix_label, outImg_idx, bd_cnt, edge_cnt);
         }
     } 
 }
@@ -319,6 +325,8 @@ template<typename NODE, typename EDGE, typename BORDER>
 CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     UINT32 label = 0;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
+        if(it->first == 0)
+            continue;
         m_outLabelI.ResetDataFromVector((it->second).pixs, label);
         label += 1;
     }
@@ -329,6 +337,8 @@ CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
 template<typename NODE, typename EDGE, typename BORDER>
 CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::GetSuperPixelIdImage(){
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
+        if(it->first == 0)
+            continue;
         m_outLabelI.ResetDataFromVector((it->second).pixs, it->first);
     }
 

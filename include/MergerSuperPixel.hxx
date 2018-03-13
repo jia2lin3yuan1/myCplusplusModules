@@ -68,12 +68,14 @@ public:
     vector<float> new_sem_score;
     float new_fit_cost;
     float new_bic_cost;
+    float new_perimeter;
     
     // functions
     DistEdge(UINT32 s1=0, UINT32 s2=0, float edge=0):Edge(s1, s2, edge),border(){
         new_fit_cost = 0.0;
         new_bic_cost = 0.0;
         mergecost    = 0.0;
+        new_perimeter= 0.0;
     }
 };
 
@@ -83,11 +85,13 @@ public:
     vector<float> sem_score;
     float fit_cost;
     float bic_cost;
+    float perimeter;
 
     // functions
     DistSuperPixel():Supix(),border(){
-        fit_cost = 0.0;
-        bic_cost = 0.0;
+        fit_cost  = 0.0;
+        bic_cost  = 0.0;
+        perimeter = 0.0;
     }
 };
 
@@ -208,6 +212,10 @@ void SuperPixelMerger::Merger(){
 }
 
 void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
+    if(m_edges[edge].sup1 == 0 || m_edges[edge].sup2==0)
+        return;
+
+    m_supixs[sup].perimeter= m_edges[edge].new_perimeter; 
     m_supixs[sup].fit_cost = m_edges[edge].new_fit_cost;
     m_supixs[sup].bic_cost = m_edges[edge].new_bic_cost;
     m_supixs[sup].border   = m_edges[edge].border;
@@ -268,6 +276,8 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     
     // Main process.
     DistEdge &ref_edge = m_edges[edge];
+    if(ref_edge.sup1 == 0 || ref_edge.sup2 ==0)
+        return;
     
     // compute edge's edgeval as the mean of edgeval on border pixels.
     float edge_val = 0;
@@ -300,11 +310,18 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
-    float sem_diff    = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
-    float sem_cost    = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
-    float merge_fit_cost = ref_edge.new_fit_cost - (m_supixs[ref_edge.sup1].fit_cost + m_supixs[ref_edge.sup2].fit_cost);
-    float merge_bic_cost = ref_edge.new_bic_cost - (m_supixs[ref_edge.sup1].bic_cost + m_supixs[ref_edge.sup2].bic_cost);
-    ref_edge.mergecost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost + sem_cost;
+    DistSuperPixel &supix0 = m_supixs[ref_edge.sup1];
+    DistSuperPixel &supix1 = m_supixs[ref_edge.sup2];
+    ref_edge.new_perimeter = supix0.perimeter + supix1.perimeter - ref_edge.bd_pixs.size();
+    float geo_cost   = ref_edge.new_perimeter/(supix0.pixs.size()-supix1.pixs.size());
+    geo_cost        -= (supix0.perimeter/supix0.pixs.size() + supix1.perimeter/supix1.pixs.size());
+        
+    float sem_diff       = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
+    float sem_cost       = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
+
+    float merge_fit_cost = ref_edge.new_fit_cost - (supix0.fit_cost + supix1.fit_cost);
+    float merge_bic_cost = ref_edge.new_bic_cost - (supix0.bic_cost + supix1.bic_cost);
+    ref_edge.mergecost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost + sem_cost + m_pParam->merge_edge_geo_alpha*geo_cost;
     
     // push new edge to seed stock.
     Seed_1D merge_seed(edge, ref_edge.mergecost);
@@ -312,8 +329,16 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
 }
 
 void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
+    if(sup == 0)
+        return;
+
     DistSuperPixel &ref_supix = m_supixs[sup];
-    Border        &ref_border = ref_supix.border; 
+    Border        &ref_border = ref_supix.border;
+
+    // compute perimeter.
+    for(auto it : ref_supix.adjacents){
+        ref_supix.perimeter += m_edges[it.second].bd_pixs.size();
+    }
 
     // compute semantic score.
     ref_supix.sem_score.resize(m_num_sem, 0);

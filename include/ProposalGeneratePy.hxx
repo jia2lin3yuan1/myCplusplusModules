@@ -11,7 +11,7 @@
  *           distVec: distance Matrix, size = distCh*imgHt*imgWd. arrange as: first wd, then ht, then distCh.
  *            semVec: semantic Matrix, size = semCh *imgHt*imgWd. arrange as: first wd, then ht, then semCH.
  */
-void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * labelArr){
+std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec){
     // load data to CDataTemplate from vector.
     UINT32 imgHt  = imgInfo[0];
     UINT32 imgWd  = imgInfo[1];
@@ -95,13 +95,25 @@ void ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec, UINT32 * l
     supixMerger.Merger();
     out_labelI = supixMerger.AssignOutputLabel();
 
+    // ----------------------------
+    // generate trimap for different instance proposals.
+
+
+
+    // ------------------------------------
     // CDataTemplate to vector.
-    for(UINT32 y=0; y < imgHt; y++){
-        for(UINT32 x=0; x < imgWd; x++){
-           labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
-           cnt += 1;
+    UINT32 outCh = out_labelI.GetZDim();
+    std::vector<float> out_vec(imgHt*imgWd*outCh, 0);
+    for(UINT32 z=0; z < outCh; z++){
+        for(UINT32 y=0; y < imgHt; y++){
+            for(UINT32 x=0; x < imgWd; x++){
+               out_vec[cnt] = float(out_labelI.GetDataByIdx(cnt));
+               cnt += 1;
+            }
         }
     }
+
+    return out_vec;
 }
 
 

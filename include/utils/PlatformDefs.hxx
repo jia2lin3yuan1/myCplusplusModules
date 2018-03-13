@@ -24,7 +24,7 @@
 
 // #define DEBUG_SEGMENT_MERGE
 
-#define DEBUG_FINAL_TRIMAP
+// #define DEBUG_FINAL_TRIMAP
 
 #define OPEN_DEBUG 0 // output information on console.
 
@@ -122,6 +122,7 @@ typedef struct Global_Parameters{
     // segment merge.
     UINT32 merge_supix_bic_addi_len;
     
+    float  merge_edge_geo_alpha;
     float  merge_edge_bic_alpha;
     float  merge_edge_semdiff_thr;
     float  merge_edge_semdiff_pnty;
@@ -160,7 +161,7 @@ typedef struct Global_Parameters{
 
         segGrow_extd_semdiff_thr      = 7e-1;
 
-        segGrow_shrk_bic_alpha        = 3e-1;
+        segGrow_shrk_bic_alpha        = 5e-1;
         segGrow_shrk_bic_addi_len     = 2;
         segGrow_shrk_fit_cost_thr     = 5e-2;
         segGrow_shrk_fit_cost_penalty = 1e4;
@@ -172,11 +173,12 @@ typedef struct Global_Parameters{
         // segment merge.
         merge_supix_bic_addi_len = 1;
         
-        merge_edge_bic_alpha     = 3e-1;
+        merge_edge_geo_alpha     = 8e1;
+        merge_edge_bic_alpha     = 5e-1;
         merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e9;
 
-        merge_merger_thr         = 5e0;
+        merge_merger_thr         = 5e1;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;
@@ -186,7 +188,7 @@ typedef struct Global_Parameters{
         tri_seed_fit_alpha       = 0;
         tri_seed_geo_alpha       = 5e-1;
     
-        tri_edge_fit_alpha       = 1e1;
+        tri_edge_fit_alpha       = 5e-1;
         tri_edge_semdiff_thr     = 7e-1;
         
         tri_notseed_prob_thr     = 5e-1;

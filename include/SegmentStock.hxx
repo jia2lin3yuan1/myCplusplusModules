@@ -191,14 +191,24 @@ float Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x
 }
 
 float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
-    DpSeg dp_seg0, dp_seg1;
-    this->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
-    this->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
+    // DpSeg dp_seg0, dp_seg1;
+    // this->GetDpSegmentByCoord(dp_seg0, y0, x0, (y0==y1? e_seg_h : e_seg_v));
+    // this->GetDpSegmentByCoord(dp_seg1, y1, x1, (y0==y1? e_seg_h : e_seg_v));
+    // 
+    // y0 = min(dp_seg0.y0, dp_seg1.y0);
+    // x0 = min(dp_seg0.x0, dp_seg1.x0);
+    // y1 = max(dp_seg0.y1, dp_seg1.y1);
+    // x1 = max(dp_seg0.x1, dp_seg1.x1);
     
-    y0 = min(dp_seg0.y0, dp_seg1.y0);
-    x0 = min(dp_seg0.x0, dp_seg1.x0);
-    y1 = max(dp_seg0.y1, dp_seg1.y1);
-    x1 = max(dp_seg0.x1, dp_seg1.x1);
+    // find closest st, end.
+    if(y0 == y1){
+        x0 = m_all_segIdx.GetData(y0, x0, e_seg_h*2); 
+        x1 = m_all_segIdx.GetData(y1, x1, e_seg_h*2+1); 
+    }
+    else{
+        y0 = m_all_segIdx.GetData(y0, x0, e_seg_v*2); 
+        y1 = m_all_segIdx.GetData(y1, x1, e_seg_v*2+1); 
+    }
     
     return this->GetAllSegFitError(y0, x0, y1, x1);
 }
