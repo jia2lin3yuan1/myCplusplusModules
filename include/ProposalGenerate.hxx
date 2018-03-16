@@ -62,6 +62,7 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     }
     else
         maskI = supixMerger.AssignOutputLabel();
+    return;
 #endif
     
 

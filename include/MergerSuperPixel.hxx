@@ -138,6 +138,7 @@ public:
 };
 
 void SuperPixelMerger::PrintOutInformation(){
+    /*
     cout<<"** super pixels: "<<m_supixs.size()<<endl;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         auto &supix = it->second;
@@ -150,9 +151,8 @@ void SuperPixelMerger::PrintOutInformation(){
         cout << endl<<endl;
     }
     cout<<endl<<endl;
+    */
     
-    
-    /*
     cout<<"---------------"<<endl<<"** Edge's information. "<<endl;
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         cout<<"  * id "<<it->first<<" :: ("<<(it->second).sup1<<", "<<(it->second).sup2<<" )"<<endl;
@@ -161,7 +161,6 @@ void SuperPixelMerger::PrintOutInformation(){
         cout<<"             sup2: "<<m_supixs[(it->second).sup2].bic_cost<<", "<<m_supixs[(it->second).sup2].fit_cost<<", size: "<<m_supixs[(it->second).sup2].pixs.size()<<endl;
     }
     cout<<endl;
-    */
 }
 
 void SuperPixelMerger::GetDebugImage(CDataTempl<float> &debugI, UINT32 mode){
@@ -310,19 +309,25 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
-    DistSuperPixel &supix0 = m_supixs[ref_edge.sup1];
-    DistSuperPixel &supix1 = m_supixs[ref_edge.sup2];
-    ref_edge.new_perimeter = supix0.perimeter + supix1.perimeter - ref_edge.bd_pixs.size();
-    float geo_cost   = ref_edge.new_perimeter/(supix0.pixs.size()-supix1.pixs.size());
-    geo_cost        -= (supix0.perimeter/supix0.pixs.size() + supix1.perimeter/supix1.pixs.size());
-        
     float sem_diff       = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
-    float sem_cost       = sem_diff > m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
-
-    float merge_fit_cost = ref_edge.new_fit_cost - (supix0.fit_cost + supix1.fit_cost);
-    float merge_bic_cost = ref_edge.new_bic_cost - (supix0.bic_cost + supix1.bic_cost);
-    ref_edge.mergecost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost + sem_cost + m_pParam->merge_edge_geo_alpha*geo_cost;
-    
+    if((ref_edge.sup1==1 || ref_edge.sup2 == 1) &&sem_diff < m_pParam->merge_edge_semdiff_thr){
+        ref_edge.mergecost = 0;
+    }
+    else{
+        float sem_cost       = sem_diff >= m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
+        
+        DistSuperPixel &supix0 = m_supixs[ref_edge.sup1];
+        DistSuperPixel &supix1 = m_supixs[ref_edge.sup2];
+        ref_edge.new_perimeter = supix0.perimeter + supix1.perimeter - ref_edge.bd_pixs.size();
+        float geo_cost       = ref_edge.new_perimeter/(supix0.pixs.size()-supix1.pixs.size());
+        geo_cost            -= (supix0.perimeter/supix0.pixs.size() + supix1.perimeter/supix1.pixs.size());
+        
+        float merge_fit_cost = ref_edge.new_fit_cost - (supix0.fit_cost + supix1.fit_cost);
+        float merge_bic_cost = ref_edge.new_bic_cost - (supix0.bic_cost + supix1.bic_cost);
+        float fit_bic_cost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost;
+        float connect_cost   = min(supix0.perimeter, supix1.perimeter)/float(ref_edge.bd_pixs.size());
+        ref_edge.mergecost   = fit_bic_cost + sem_cost + m_pParam->merge_edge_geo_alpha*geo_cost + connect_cost*m_pParam->merge_edge_conn_alpha; 
+    }
     // push new edge to seed stock.
     Seed_1D merge_seed(edge, ref_edge.mergecost);
     m_merge_seeds.push(merge_seed);
