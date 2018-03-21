@@ -8,7 +8,7 @@
  */
 
 
-void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<float> &semM){
+void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<UINT32> &instI){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
     ReadFromCSV(distM, fpath+"dist1.csv", 1);
     ReadFromCSV(distM, fpath+"dist2.csv", 2);
@@ -39,22 +39,31 @@ void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<float> 
     ReadFromCSV(semM, fpath+"sem19.csv", 19);
     
     ReadFromCSV(semM, fpath+"sem20.csv", 20);
+    
+    ReadFromCSV(instI, fpath+"instance.csv", 0);
 }
 
 
-void testSegmentGrow(std::string fpath, UINT32 imgHt, UINT32 imgWd){
+void testSegmentGrow(std::string fpath){
+    CDataTempl<UINT32> shape(2);
+    ReadFromCSV(shape, fpath+"size.csv", 0);
+    UINT32 imgHt = shape.GetData(0);
+    UINT32 imgWd = shape.GetData(1);
+    
     CDataTempl<float> distM(imgHt, imgWd, 4);
     CDataTempl<float> semM(imgHt, imgWd, 21);
-    PrepareData(fpath, distM, semM);
+    CDataTempl<UINT32> instI(imgHt, imgWd);
+    PrepareData(fpath, distM, semM, instI);
 #ifdef DEBUG_FINAL_TRIMAP
     CDataTempl<float> maskI;
 #else
     CDataTempl<UINT32> maskI;
 #endif
-    ProposalGenerate(distM, semM, maskI);
+    ProposalGenerate(distM, semM, instI, maskI);
     
     // visulizing.
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
+    return; 
     string py_command = "python pyShow.py";
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
         WriteToCSV(maskI, "./output/test.csv", k);
@@ -64,14 +73,18 @@ void testSegmentGrow(std::string fpath, UINT32 imgHt, UINT32 imgWd){
 
 
 int main(){
-    UINT32 imgHt = 375;
-    UINT32 imgWd = 500;
-    std::string fpath = "./input/2007_001239/"; 
-   
-    testSegmentGrow(fpath, imgHt, imgWd);
+    UINT32 cnt = 0;
+    std::string fpath;
     
-    
-    
+    cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
+    cin >> fpath;
+    while(fpath[0] == '2'){
+        fpath = "./input/"+fpath+"/";
+        testSegmentGrow(fpath);
+        
+        cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
+        cin >> fpath;
+    }
     return 0;
 }
     

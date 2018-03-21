@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <iomanip>
 
@@ -122,6 +123,7 @@ typedef struct Global_Parameters{
     // segment merge.
     UINT32 merge_supix_bic_addi_len;
     
+    float  merge_edge_conn_alpha;
     float  merge_edge_geo_alpha;
     float  merge_edge_bic_alpha;
     float  merge_edge_semdiff_thr;
@@ -167,18 +169,19 @@ typedef struct Global_Parameters{
         segGrow_shrk_fit_cost_penalty = 1e4;
         segGrow_shrk_cost_thr         = 0;
 
-        segGrow_proposal_size_thr     = 10;
+        segGrow_proposal_size_thr     = 40;
         segGrow_rm_label0             = true;
 
         // segment merge.
         merge_supix_bic_addi_len = 1;
         
-        merge_edge_geo_alpha     = 8e1;
-        merge_edge_bic_alpha     = 5e-1;
+        merge_edge_conn_alpha    = 1e1;
+        merge_edge_geo_alpha     = 2e2;
+        merge_edge_bic_alpha     = 1e0;
         merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e9;
 
-        merge_merger_thr         = 5e1;
+        merge_merger_thr         = 1e4;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;
@@ -189,11 +192,11 @@ typedef struct Global_Parameters{
         tri_seed_geo_alpha       = 5e-1;
     
         tri_edge_fit_alpha       = 5e-1;
-        tri_edge_semdiff_thr     = 7e-1;
+        tri_edge_semdiff_thr     = 1e0;
         
-        tri_notseed_prob_thr     = 5e-1;
+        tri_notseed_prob_thr     = 6e-1;
+        tri_cluster_prob_thr     = 5e-1;
         tri_cluster_supix0_prob  = 5e-1;
-        tri_cluster_prob_thr     = 3e-1;
     }
 
 }GlbParam;
@@ -202,6 +205,17 @@ typedef struct Global_Parameters{
 
 
 // Global Functions.
+#define HIST_W_NUM_BIN 12
+float glb_hist_w_thr[] = {-5e-2, -2e-2, -1.5e-2, -1e-2, -5e-3, 0, 5e-3, 1e-2, 1.5e-2, 2e-2, 5e-2};
+template<typename T2>
+UINT32 vote2histogram_w(T2 val){
+    for(int k =0; k<HIST_W_NUM_BIN-1; k++){
+        if(val < glb_hist_w_thr[k])
+            return k;
+    }
+    return HIST_W_NUM_BIN-1;
+}
+
 
 template<typename T2>
 float _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){

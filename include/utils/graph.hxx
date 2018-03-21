@@ -220,10 +220,10 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
 
     // Main process.
     // 1. add all pixels in sup1 into sup0.and update sup0's attribute.
+    UpdateSuperPixel(sup0, m_supixs[sup0].adjacents[sup1]);
     for(auto it=m_supixs[sup1].pixs.begin(); it != m_supixs[sup1].pixs.end(); it++){
         m_supixs[sup0].pixs.push_back(*it);
     }
-    UpdateSuperPixel(sup0, m_supixs[sup0].adjacents[sup1]);
 
     // 2. merge sup1's adjacents to sup0's adjacents.
     for(auto it=m_supixs[sup1].adjacents.begin(); it != m_supixs[sup1].adjacents.end(); it++){

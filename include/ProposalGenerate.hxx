@@ -6,7 +6,7 @@
 #include "TriMapGenerate.hxx"
 
 template<typename OUT_TYPE>
-void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<OUT_TYPE> &maskI){
+void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<UINT32> &instI, CDataTempl<OUT_TYPE> &maskI){
     
     UINT32 imgHt = distM.GetYDim();
     UINT32 imgWd = distM.GetXDim();
@@ -48,11 +48,13 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     
-    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam);
+    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam, &instI);
     supixMerger.AssignInputLabel(&segLabelI);
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
+    supixMerger.WriteClassifierTrainData("test.txt");
     supixMerger.Merger();
+    supixMerger.WriteClassifierTrainData("test2.txt");
 
 #ifdef DEBUG_SEGMENT_MERGE
     if (false){

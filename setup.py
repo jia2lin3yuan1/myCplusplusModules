@@ -8,7 +8,7 @@ from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 import numpy as np
 
-src_files=["py_distPropsGenerate.pyx"]
+src_files=["py_distPropsGenerate.pyx", "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/svm.cpp"]
 src_include = [np.get_include(), "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"]
 src_libs = []
 src_link_args = ['-g']

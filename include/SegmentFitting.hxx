@@ -21,7 +21,7 @@ using namespace std;
 // Target: Given a 1D vector, find the best way to fit it into several sections.
 //
 
-enum Dist_Ch {e_dist_lft=0, e_dist_rht, e_dist_bot, e_dist_top};
+enum Dist_Ch {e_dist_lft=0, e_dist_rht, e_dist_bot, e_dist_top, e_dist_num_ch};
 enum Fit_Mode {e_fit_hor=0, e_fit_ver};
 class Segment_Fit{
 protected:

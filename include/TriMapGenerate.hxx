@@ -160,7 +160,7 @@ float Trimap_Generate::ComputeFitDifference(UINT32 hy0, UINT32 hx0, UINT32 hy1, 
         }
     }
 
-    return fit_diff/(fit_cnt==0? 1 : fit_cnt);
+    return fit_diff; ///(fit_cnt==0? 1 : fit_cnt);
 }
 
 void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
@@ -224,12 +224,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
 
         // geometric cost
         float area = supix.pixs.size();
-        float perim = 0;
-        for(auto it:supix.adjacents){
-            auto &edge = m_pGraph->GetEdge(it.second);
-            perim += edge.bd_pixs.size();
-        }
-        float geo_cost = perim / area;
+        float geo_cost = supix.perimeter / area;
         cost += geo_cost * m_pParam->tri_seed_geo_alpha;
 
         // semantic cost
@@ -249,19 +244,14 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
     // Create TriNode and new directed edge based on super pixels.
     vector<UINT32> supIds = m_pGraph->GetAllSuperPixelsId();
     for(auto ele: supIds){
-        m_tri_nodes[ele].cost = ComputeSeedCost(ele); 
-        m_tri_nodes[ele].flag = e_tri_cand;
-
-        // add the triNode as candidate seed.
-        Seed_1D node(ele, m_tri_nodes[ele].cost);
-        m_tri_node_seeds.push(node);
-
-        // traverse all other supixs to create TriEdge.
         if(ele == 0)
             continue;
+        m_tri_nodes[ele].flag = e_tri_cand;
         
+        // traverse all other supixs to create TriEdge.
         auto &supix = m_pGraph->GetSuperPixel(ele);
         cout<<" ** cen "<<ele<<": size = "<<supix.pixs.size()<<",  bbox = ["<<supix.border.bbox[0]<<", "<<supix.border.bbox[1]<<", "<<supix.border.bbox[2]<<", "<<supix.border.bbox[3]<<" ]"<<endl;
+        float merge_size = supix.pixs.size();
         for(auto ele_a : supIds){
             if(ele_a == 0 || ele_a==1 || ele_a == ele)
                 continue;
@@ -278,8 +268,18 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
                 cout<<"     nei "<< ele_a <<":: ";
                 m_tri_edges[edge_key].edgeval = ComputeBelongProb(ele, ele_a);
                 cout<<",   edge_prob = "<<setprecision(4)<<m_tri_edges[edge_key].edgeval<<endl;
+                if(m_tri_edges[edge_key].edgeval > m_pParam->tri_cluster_prob_thr){
+                    auto &supix_a = m_pGraph->GetSuperPixel(ele_a);
+                    merge_size   += supix_a.pixs.size();
+                }
             }
         }
+        
+        // add the triNode as candidate seed.
+        m_tri_nodes[ele].cost = ComputeSeedCost(ele);
+        m_tri_nodes[ele].cost += 1.0/(merge_size+1);
+        Seed_1D node(ele, m_tri_nodes[ele].cost);
+        m_tri_node_seeds.push(node);
     }
 }
 
@@ -344,6 +344,11 @@ void Trimap_Generate::GetOutputData(CDataTempl<float> &out_trimapI){
         else{
             auto &supix = m_pGraph->GetSuperPixel(ele.first);
             TriNode &tri_node = ele.second;
+            Seed_1D top_node = tri_node.cluster_probs.top();
+            tri_node.cluster_probs.pop();
+            out_trimapI.ResetDataFromVector(supix.pixs, top_node.cost, top_node.id0);
+            continue;
+            
             while(tri_node.cluster_probs.size()>0){
                 Seed_1D top_node = tri_node.cluster_probs.top();
                 tri_node.cluster_probs.pop();

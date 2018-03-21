@@ -20,7 +20,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     UINT32 semCh  = imgInfo[3];
 
     std::cout<<"Image info is: ht/wd = "<< imgHt << " / " << imgWd << ", dist/sem ch = "<<distCh<<" / "<<semCh<<std::endl;
-    
+
     CDataTempl<float> distM(imgHt, imgWd, distCh);
     distM.AssignFromVector(distVec);
     
@@ -85,7 +85,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     // ----------------------
     //merge based on generated super pixels.
     std::cout<<"step 3: Merge super pixels. "<<std::endl; 
-    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam);
+    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam, &semI);
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     supixMerger.AssignInputLabel(&segLabelI);
