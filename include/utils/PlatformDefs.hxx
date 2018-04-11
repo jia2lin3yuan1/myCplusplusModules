@@ -129,6 +129,8 @@ typedef struct Global_Parameters{
     float  merge_edge_semdiff_thr;
     float  merge_edge_semdiff_pnty;
 
+    bool   merge_svm_en;
+    double merge_svm_dec_thr;
     float  merge_merger_thr;
 
     // tri-map.
@@ -181,7 +183,9 @@ typedef struct Global_Parameters{
         merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e9;
 
-        merge_merger_thr         = 1e4;
+        merge_svm_en             = 1;
+        merge_svm_dec_thr        = 5e0;
+        merge_merger_thr         = 5e3;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;
@@ -205,8 +209,18 @@ typedef struct Global_Parameters{
 
 
 // Global Functions.
+#if 1
 #define HIST_W_NUM_BIN 12
-float glb_hist_w_thr[] = {-5e-2, -2e-2, -1.5e-2, -1e-2, -5e-3, 0, 5e-3, 1e-2, 1.5e-2, 2e-2, 5e-2};
+float glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.5e-2,   -1e-2,   -5e-3,
+                              0,    5e-3,    1e-2,  1.5e-2,    2e-2,  5e-2};
+#else
+#define HIST_W_NUM_BIN 24
+float glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.8e-2, -1.6e-2, -1.4e-2,
+                        -1.2e-2,   -1e-2,   -83-3,   -6e-3,   -4e-3,
+                          -2e-3,       0,    2e-3,    4e-3,    6e-3,    
+                           8e-3,    1e-2,  1.2e-2,  1.4e-2,  1.6e-2,
+                         1.8e-2,    2e-2,    5e-2};
+#endif
 template<typename T2>
 UINT32 vote2histogram_w(T2 val){
     for(int k =0; k<HIST_W_NUM_BIN-1; k++){

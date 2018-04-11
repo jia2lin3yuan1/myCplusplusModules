@@ -107,9 +107,11 @@ protected:
     Segment_Stock      *m_pSegStock;
    
     // for svm model
-    UINT32 m_len_svm_feature;
+    bool       m_svm_en;
+    UINT32     m_len_svm_feature;
+    double    *m_pSVM_decVals;
     struct svm_model   *m_pSVMmodel;
-    struct svm_node    *m_pX;
+    struct svm_node    *m_pSVMX;
 
     // generated variables
     UINT32  m_num_sem;
@@ -127,18 +129,28 @@ public:
         m_num_sem = m_pSemMat->GetZDim();
 
         m_len_svm_feature = HIST_W_NUM_BIN*e_dist_num_ch + 4 + m_num_sem+2;
-        if((m_pSVMmodel=svm_load_model("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/pascal_svm.model.2"))==0){
-            cout<<"Error, can't open model file."<<endl;
-            exit(1);
+        m_pSVMX        = (struct svm_node *) malloc((2*m_len_svm_feature+4)*sizeof(struct svm_node));
+        m_svm_en       = m_pParam->merge_svm_en;
+        m_pSVMmodel    = nullptr;
+        m_pSVM_decVals = nullptr;
+
+        if(m_svm_en){
+            if((m_pSVMmodel=svm_load_model("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/pascal_svm.model.2"))==0){
+                cout<<"Error, can't open model file."<<endl;
+                exit(1);
+            }
+            m_pSVM_decVals = (double *) malloc(1*sizeof(double));
         }
-        m_pX = (struct svm_node *) malloc((2*m_len_svm_feature+4)*sizeof(struct svm_node));
     }
     ~SuperPixelMerger(){
-        if(m_pSVMmodel != NULL){
+        if(m_pSVMmodel != nullptr){
             svm_free_and_destroy_model(&m_pSVMmodel);
         }
-        if(m_pX != NULL){
-            free(m_pX);
+        if(m_pSVMX != nullptr){
+            free(m_pSVMX);
+        }
+        if(m_pSVM_decVals != nullptr){
+            free(m_pSVM_decVals);
         }
     }
     
@@ -205,8 +217,8 @@ string SuperPixelMerger::SingleSuperPixelSVMFeature(UINT32 sup, UINT32 base_k, U
     UINT32 cnt = x_st;
     // bbox
     for(UINT32 k=0; k< 4; k++){
-        m_pX[cnt].index = base_k+k;
-        m_pX[cnt].value = m_supixs[sup].border.bbox[k]/(float)(k%2==0? m_ht : m_wd);
+        m_pSVMX[cnt].index = base_k+k;
+        m_pSVMX[cnt].value = m_supixs[sup].border.bbox[k]/(float)(k%2==0? m_ht : m_wd);
         cnt += 1;
     }
     // semantic
@@ -214,33 +226,33 @@ string SuperPixelMerger::SingleSuperPixelSVMFeature(UINT32 sup, UINT32 base_k, U
         if (m_supixs[sup].sem_score[k]==0)
             continue;
         
-        m_pX[cnt].index = base_k+4+k;
-        m_pX[cnt].value = m_supixs[sup].sem_score[k]; 
+        m_pSVMX[cnt].index = base_k+4+k;
+        m_pSVMX[cnt].value = m_supixs[sup].sem_score[k]; 
         cnt += 1;
     }
     // histogram_w
     for(UINT32 k =0; k < e_dist_num_ch*HIST_W_NUM_BIN; k++){
         if (m_supixs[sup].hist_w[k]==0)
             continue;
-        m_pX[cnt].index = base_k+4+m_num_sem+k;
-        m_pX[cnt].value = m_supixs[sup].hist_w[k]; 
+        m_pSVMX[cnt].index = base_k+4+m_num_sem+k;
+        m_pSVMX[cnt].value = m_supixs[sup].hist_w[k]; 
         cnt += 1;
     }
     // fit_cost.
-    m_pX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN;
-    m_pX[cnt].value = m_supixs[sup].fit_cost/m_supixs[sup].pixs.size(); 
+    m_pSVMX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN;
+    m_pSVMX[cnt].value = m_supixs[sup].fit_cost/m_supixs[sup].pixs.size(); 
     cnt += 1;
         
     // bic_cost.
-    m_pX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN+1;
-    m_pX[cnt].value = m_supixs[sup].bic_cost/m_supixs[sup].pixs.size(); 
+    m_pSVMX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN+1;
+    m_pSVMX[cnt].value = m_supixs[sup].bic_cost/m_supixs[sup].pixs.size(); 
     cnt += 1;
        
     // construct string for output
     string str0 = "";
     if(gen_str){
         for(UINT32 k= x_st; k < cnt; k++){
-            str0 += to_string(m_pX[k].index) + ":"+ to_string(m_pX[k].value) + " ";
+            str0 += to_string(m_pSVMX[k].index) + ":"+ to_string(m_pSVMX[k].value) + " ";
         }
     }
 
@@ -320,22 +332,24 @@ void SuperPixelMerger::Merger(){
 
         // judge by svm for whether merge or not.
         DistEdge &ref_edge = m_edges[top_node.id0];
-        UINT32 x_st = 0;
-        SingleSuperPixelSVMFeature(ref_edge.sup1, 0, x_st, false);
-        SingleSuperPixelSVMFeature(ref_edge.sup2, m_len_svm_feature, x_st, false);
-        m_pX[x_st].index = 2*m_len_svm_feature;
-        m_pX[x_st].value = ref_edge.new_fit_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
-        x_st += 1;
+        if(m_svm_en){
+            UINT32 x_st = 0;
+            SingleSuperPixelSVMFeature(ref_edge.sup1, 0, x_st, false);
+            SingleSuperPixelSVMFeature(ref_edge.sup2, m_len_svm_feature, x_st, false);
+            m_pSVMX[x_st].index = 2*m_len_svm_feature;
+            m_pSVMX[x_st].value = ref_edge.new_fit_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
+            x_st += 1;
 
-        m_pX[x_st].index = 2*m_len_svm_feature + 1;
-        m_pX[x_st].value = ref_edge.new_bic_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
-        x_st += 1;
+            m_pSVMX[x_st].index = 2*m_len_svm_feature + 1;
+            m_pSVMX[x_st].value = ref_edge.new_bic_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
+            x_st += 1;
 
-        m_pX[x_st].index = -1;
-        
-        double pred_label = svm_predict(m_pSVMmodel, m_pX);
-        if(pred_label == 0)
-            continue;
+            m_pSVMX[x_st].index = -1;
+            
+            double pred_label = svm_predict_values(m_pSVMmodel, m_pSVMX, m_pSVM_decVals);
+            if(pred_label == 0 || abs(*m_pSVM_decVals) > m_pParam->merge_svm_dec_thr)
+                continue;
+        }
         
         if (OPEN_DEBUG)
             cout<<"Merge..."<<top_node.id0<<": "<< ref_edge.sup1<<", "<< ref_edge.sup2<<", "<<top_node.cost<<endl;

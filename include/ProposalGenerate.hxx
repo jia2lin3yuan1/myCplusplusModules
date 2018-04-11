@@ -52,9 +52,8 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     supixMerger.AssignInputLabel(&segLabelI);
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
-    supixMerger.WriteClassifierTrainData("test.txt");
     supixMerger.Merger();
-    supixMerger.WriteClassifierTrainData("test2.txt");
+    supixMerger.WriteClassifierTrainData("test.txt");
 
 #ifdef DEBUG_SEGMENT_MERGE
     if (false){
