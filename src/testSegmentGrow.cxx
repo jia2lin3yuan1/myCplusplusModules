@@ -63,7 +63,7 @@ void testSegmentGrow(std::string fpath){
     
     // visulizing.
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
-    //return; 
+    return; 
     string py_command = "python pyShow.py";
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
         WriteToCSV(maskI, "./output/test.csv", k);

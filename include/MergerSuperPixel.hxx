@@ -66,7 +66,6 @@ public:
     Border border;
 
     float mergecost;
-    vector<float> new_sem_score;
     float new_fit_cost;
     float new_bic_cost;
     float new_perimeter;
@@ -84,10 +83,12 @@ class DistSuperPixel:public Supix{
 public:
     Border border;
     vector<float> sem_score;
+    vector<UINT32> inst_count;
     float fit_cost;
     float bic_cost;
     float perimeter;
 
+    UINT32 sem_id;
     float hist_w[e_dist_num_ch*HIST_W_NUM_BIN];
 
     // functions
@@ -95,7 +96,17 @@ public:
         fit_cost  = 0.0;
         bic_cost  = 0.0;
         perimeter = 0.0;
+        sem_id    = 0;
         memset(hist_w, 0, e_dist_num_ch*HIST_W_NUM_BIN*sizeof(float));
+    }
+    void ComputeSemId(){
+        float max_score = 0;
+        for(int k=0; k<sem_score.size(); k ++){
+            if(sem_score[k] > max_score){
+                sem_id    = k;
+                max_score = sem_score[k];
+            }
+        }
     }
 };
 
@@ -107,11 +118,17 @@ protected:
     Segment_Stock      *m_pSegStock;
    
     // for svm model
-    bool       m_svm_en;
-    UINT32     m_len_svm_feature;
-    double    *m_pSVM_decVals;
+    UINT32             m_len_svm_feature;
+    UINT32             m_merge_feature_size;
+    double             *m_pSVM_decVals;
     struct svm_model   *m_pSVMmodel;
     struct svm_node    *m_pSVMX;
+    double *m_pMrg_maxfea, *m_pMrg_minfea;
+
+    UINT32             m_bg_feature_size;
+    struct svm_model  *m_pSVMmodel_bg;
+    struct svm_node   *m_pSVMX_bg;
+    double *m_pBg_maxfea, *m_pBg_minfea;
 
     // generated variables
     UINT32  m_num_sem;
@@ -128,18 +145,35 @@ public:
         m_pInstanceI = pInstI;
         m_num_sem = m_pSemMat->GetZDim();
 
-        m_len_svm_feature = HIST_W_NUM_BIN*e_dist_num_ch + 4 + m_num_sem+2;
-        m_pSVMX        = (struct svm_node *) malloc((2*m_len_svm_feature+4)*sizeof(struct svm_node));
-        m_svm_en       = m_pParam->merge_svm_en;
+        // hist_w * num_dist + bbox_size +area + fit_cost + bic_cost + num_sem_classes.
+        // 2*m_len_svm_feature + bbox_size + area + (merge_fit_cost + merge_bic_cost)
+        m_len_svm_feature    = e_dist_num_ch*HIST_W_NUM_BIN + 2 + 1 + 1 + 1; 
+        m_merge_feature_size = 2*m_len_svm_feature + m_num_sem + 5;
+        m_pSVMX        = (struct svm_node *) malloc((m_merge_feature_size)*sizeof(struct svm_node));
         m_pSVMmodel    = nullptr;
         m_pSVM_decVals = nullptr;
+        m_pMrg_maxfea  = nullptr;
+        m_pMrg_minfea  = nullptr;
 
-        if(m_svm_en){
-            if((m_pSVMmodel=svm_load_model("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/pascal_svm.model.2"))==0){
+        m_bg_feature_size = e_dist_num_ch*HIST_W_NUM_BIN + 4;
+        m_pSVMX_bg     = (struct svm_node *) malloc((m_bg_feature_size)*sizeof(struct svm_node));
+        m_pSVMmodel_bg = nullptr;
+        m_pBg_maxfea   = nullptr;
+        m_pBg_minfea   = nullptr; 
+
+        if(m_pParam->merge_svm_en){
+            if((m_pSVMmodel=svm_load_model("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/merge_24bins.model"))==0){
                 cout<<"Error, can't open model file."<<endl;
                 exit(1);
             }
             m_pSVM_decVals = (double *) malloc(1*sizeof(double));
+            
+            if((m_pSVMmodel_bg=svm_load_model("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/bg_24bins.model"))==0){
+                cout<<"Error, can't open model file."<<endl;
+                exit(1);
+            }
+
+            ReadClassifierFeatureNorm("/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/feature_norm_24bins_mrg.txt", "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/svm/feature_norm_24bins_bg.txt");
         }
     }
     ~SuperPixelMerger(){
@@ -152,16 +186,37 @@ public:
         if(m_pSVM_decVals != nullptr){
             free(m_pSVM_decVals);
         }
+        if(m_pMrg_maxfea != nullptr){
+            delete[] m_pMrg_maxfea;
+        }
+        if(m_pMrg_minfea != nullptr){
+            delete[] m_pMrg_minfea;
+        }
+        
+        
+        if(m_pSVMmodel_bg != nullptr){
+            svm_free_and_destroy_model(&m_pSVMmodel_bg);
+        }
+        if(m_pSVMX_bg != nullptr){
+            free(m_pSVMX_bg);
+        }
+        if(m_pBg_maxfea != nullptr){
+            delete[] m_pBg_maxfea;
+        }
+        if(m_pBg_minfea != nullptr){
+            delete[] m_pBg_minfea;
+        }
     }
     
     // virtual function from Graph
     void UpdateSuperPixel(UINT32 sup, UINT32 edge);
     void ComputeGraphWeights();
     void ComputeEdgeWeights(UINT32 edge);
+    float ComputeEdgeMergeCost(DistEdge &edge, float &merge_cost);
     
 
     // function working on adding member variables on Node and Edge.
-    void ComputeSuperPixelCost(UINT32 sup);
+    void  ComputeSuperPixelCost(UINT32 sup);
     void  ComputeHistogramW(DistSuperPixel &ref_supix, UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
     void  NormalizeHistogramW(DistSuperPixel &ref_supis);
     float ComputeFitCost(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1, UINT32 size);
@@ -176,8 +231,16 @@ public:
     void PrintOutInformation();
 
     // svm classifier
+    void   ReadClassifierFeatureNorm(string mrg_fname=NULL, string bg_fname=NULL);
+    void   NormalizeSVMFeature(UINT32 num_node, UINT32 type=0);
+    UINT32 FindInstanceLabel(const DistSuperPixel &supix);
     string SingleSuperPixelSVMFeature(UINT32 sup, UINT32 base_k, UINT32 &x_st, bool gen_str=true);
-    void   WriteClassifierTrainData(string fname, bool onlyConnect=true);
+    string ConstructFinalClassifierFeature(DistEdge &edge, UINT32 &x_st, bool gen_str=true);
+    void   WriteClassifierTrainData_merge(string fname);
+   
+    void   FakeInstanceFromGroundTruth(map<UINT32, UINT32> &notfake_vec);
+    string ConstructFinalClassifierFeature_bg(DistSuperPixel &supix, UINT32 &x_st, bool gen_str=true);
+    void   WriteClassifierTrainData_bg(string fname);
 };
 
 void SuperPixelMerger::PrintOutInformation(){
@@ -214,45 +277,41 @@ void SuperPixelMerger::GetDebugImage(CDataTempl<float> &debugI, UINT32 mode){
 }
 
 string SuperPixelMerger::SingleSuperPixelSVMFeature(UINT32 sup, UINT32 base_k, UINT32 &x_st, bool gen_str){
+    struct svm_node *pSVMX = m_pSVMX;
     UINT32 cnt = x_st;
     // bbox
-    for(UINT32 k=0; k< 4; k++){
-        m_pSVMX[cnt].index = base_k+k;
-        m_pSVMX[cnt].value = m_supixs[sup].border.bbox[k]/(float)(k%2==0? m_ht : m_wd);
-        cnt += 1;
-    }
-    // semantic
-    for(UINT32 k=0; k < m_supixs[sup].sem_score.size(); k++){
-        if (m_supixs[sup].sem_score[k]==0)
-            continue;
-        
-        m_pSVMX[cnt].index = base_k+4+k;
-        m_pSVMX[cnt].value = m_supixs[sup].sem_score[k]; 
-        cnt += 1;
-    }
+    pSVMX[cnt].index = base_k;
+    pSVMX[cnt].value = m_supixs[sup].border.bbox[2] - m_supixs[sup].border.bbox[0];
+    cnt += 1;
+    pSVMX[cnt].index = base_k+1;
+    pSVMX[cnt].value = m_supixs[sup].border.bbox[3] - m_supixs[sup].border.bbox[1];
+    cnt += 1;
+    // rgn area.
+    pSVMX[cnt].index = base_k+2;
+    pSVMX[cnt].value = m_supixs[sup].pixs.size(); 
+    cnt += 1;
+    // fit_cost.
+    pSVMX[cnt].index = base_k+3;
+    pSVMX[cnt].value = m_supixs[sup].fit_cost/m_supixs[sup].pixs.size(); 
+    cnt += 1;
+    // bic_cost.
+    pSVMX[cnt].index = base_k+4;
+    pSVMX[cnt].value = m_supixs[sup].bic_cost/m_supixs[sup].pixs.size(); 
+    cnt += 1;
     // histogram_w
     for(UINT32 k =0; k < e_dist_num_ch*HIST_W_NUM_BIN; k++){
         if (m_supixs[sup].hist_w[k]==0)
             continue;
-        m_pSVMX[cnt].index = base_k+4+m_num_sem+k;
-        m_pSVMX[cnt].value = m_supixs[sup].hist_w[k]; 
+        pSVMX[cnt].index = base_k+5+m_num_sem+k;
+        pSVMX[cnt].value = m_supixs[sup].hist_w[k]; 
         cnt += 1;
     }
-    // fit_cost.
-    m_pSVMX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN;
-    m_pSVMX[cnt].value = m_supixs[sup].fit_cost/m_supixs[sup].pixs.size(); 
-    cnt += 1;
-        
-    // bic_cost.
-    m_pSVMX[cnt].index = base_k+4+m_num_sem+e_dist_num_ch*HIST_W_NUM_BIN+1;
-    m_pSVMX[cnt].value = m_supixs[sup].bic_cost/m_supixs[sup].pixs.size(); 
-    cnt += 1;
-       
+
     // construct string for output
     string str0 = "";
     if(gen_str){
         for(UINT32 k= x_st; k < cnt; k++){
-            str0 += to_string(m_pSVMX[k].index) + ":"+ to_string(m_pSVMX[k].value) + " ";
+            str0 += to_string(pSVMX[k].index) + ":"+ to_string(pSVMX[k].value) + " ";
         }
     }
 
@@ -260,22 +319,117 @@ string SuperPixelMerger::SingleSuperPixelSVMFeature(UINT32 sup, UINT32 base_k, U
     return str0;
 }
 
-void SuperPixelMerger::WriteClassifierTrainData(string fname, bool onlyConnect){
-    auto FindInstanceLabel = [&](DistSuperPixel &supix){
-        map<UINT32, UINT32> inst_freq_lut;
-        for(UINT32 k =0; k < supix.pixs.size(); k ++){
-            inst_freq_lut[m_pInstanceI->GetDataByIdx(supix.pixs[k])] += 1;
-        }
+void   SuperPixelMerger::ReadClassifierFeatureNorm(string mrg_fname, string bg_fname){
+    int num_feature;
+    string line;
+    ifstream read;
+    read.open(mrg_fname);
+    getline(read, line);
+    num_feature = stoi(line);
+    assert(num_feature == m_merge_feature_size);
+    m_pMrg_maxfea = new double[m_merge_feature_size];
+    m_pMrg_minfea = new double[m_merge_feature_size];
+    for(int k=0; k < num_feature; k++){
+        getline(read, line);
+        m_pMrg_minfea[k] = stod(line.substr(0, line.find(", ")));
+        m_pMrg_maxfea[k] = stod(line.substr(line.find(", ")+1));
+    }
+    read.close();
 
-        UINT32 max_freq = 0, max_k = 0;
-        for(auto it:inst_freq_lut){
-            if(it.second > max_freq){
-                max_k = it.first;
-            }
-        }
-        return max_k;
-    };
+    
+    read.open(bg_fname);
+    getline(read, line);
+    num_feature = stoi(line);
+    assert(num_feature == m_bg_feature_size);
+    m_pBg_maxfea = new double[m_bg_feature_size];
+    m_pBg_minfea = new double[m_bg_feature_size];
+    for(int k=0; k < num_feature; k++){
+        getline(read, line);
+        m_pBg_minfea[k] = stod(line.substr(0, line.find(", ")));
+        m_pBg_maxfea[k] = stod(line.substr(line.find(", ")+1));
+    }
+    read.close();
+}
 
+void SuperPixelMerger::NormalizeSVMFeature(UINT32 num_node, UINT32 type){
+    struct svm_node *pSVMX = type==0? m_pSVMX : m_pSVMX_bg;
+    double *pMaxfea = type==0? m_pMrg_maxfea : m_pBg_maxfea;
+    double *pMinfea = type==0? m_pMrg_minfea : m_pBg_minfea;
+
+    UINT32 idx = 0;
+    for(UINT32 k =0; k < num_node; k ++){
+        idx = pSVMX[k].index;
+        if(pMaxfea[idx] > pMinfea[idx]){
+            pSVMX[k].value = (pSVMX[k].value-pMinfea[idx])/(pMaxfea[idx]-pMinfea[idx]);
+        }
+    }
+}
+
+UINT32 SuperPixelMerger::FindInstanceLabel(const DistSuperPixel &supix){
+    map<UINT32, UINT32> inst_freq_lut;
+    for(UINT32 k =0; k < supix.pixs.size(); k ++){
+        inst_freq_lut[m_pInstanceI->GetDataByIdx(supix.pixs[k])] += 1;
+    }
+
+    UINT32 max_freq = 0, max_k = 0;
+    for(auto it:inst_freq_lut){
+        if(it.second > max_freq){
+            max_k = it.first;
+        }
+    }
+    
+    return max_k;
+}
+string SuperPixelMerger::ConstructFinalClassifierFeature(DistEdge &edge, UINT32 &x_st, bool gen_str){
+    struct svm_node *pSVMX = m_pSVMX;
+    int base_k = 2 * m_len_svm_feature;
+    UINT32 area = m_supixs[edge.sup1].pixs.size()+m_supixs[edge.sup2].pixs.size();
+  
+    int cnt = x_st;
+    pSVMX[cnt].index = base_k;
+    pSVMX[cnt].value = edge.border.bbox[2]-edge.border.bbox[0];
+    cnt += 1;
+   
+    pSVMX[cnt].index = base_k+1;
+    pSVMX[cnt].value = edge.border.bbox[3]-edge.border.bbox[1];
+    cnt += 1;
+    
+    pSVMX[cnt].index = base_k+2;
+    pSVMX[cnt].value = area;
+    cnt += 1;
+    
+    pSVMX[cnt].index = base_k+3;
+    pSVMX[cnt].value = edge.new_fit_cost/area;
+    cnt += 1;
+    
+    pSVMX[cnt].index = base_k+4;
+    pSVMX[cnt].value = edge.new_bic_cost/area;
+    cnt += 1;
+    
+    // semantic
+    for(UINT32 k=0; k < m_num_sem; k++){
+        float score_diff = m_supixs[edge.sup1].sem_score[k] - m_supixs[edge.sup2].sem_score[k];
+        if (score_diff == 0)
+            continue;
+        
+        pSVMX[cnt].index = base_k+5+k;
+        pSVMX[cnt].value = score_diff<0? -score_diff : score_diff; 
+        cnt += 1;
+    }
+   
+    // construct string for output
+    string str0 = "";
+    if(gen_str){
+        for(UINT32 k= x_st; k < cnt; k++){
+            str0 += " " + to_string(pSVMX[k].index) + ":"+ to_string(pSVMX[k].value);
+        }
+    }
+
+    x_st = cnt;
+    return str0;
+}
+
+void SuperPixelMerger::WriteClassifierTrainData_merge(string fname){
     // information from each super pixel
     map<UINT32, UINT32> inst_label;
     map<UINT32, string> out_str_lut0;
@@ -296,11 +450,112 @@ void SuperPixelMerger::WriteClassifierTrainData(string fname, bool onlyConnect){
     for(auto it:m_edges){
         if(it.second.sup1 ==0 || it.second.sup2==0)
             continue;
+        UINT32 x_st = 0;
         string out_str = (inst_label[it.second.sup1]==inst_label[it.second.sup2]? to_string(1) : to_string(0));
         out_str += (" " + out_str_lut0[it.second.sup1] + out_str_lut1[it.second.sup2]);
-        out_str += to_string(2*m_len_svm_feature) + ":" + to_string(it.second.new_fit_cost/(m_supixs[it.second.sup1].pixs.size()+m_supixs[it.second.sup2].pixs.size())) + " ";
-        out_str += to_string(2*m_len_svm_feature+1) + ":" + to_string(it.second.new_bic_cost/(m_supixs[it.second.sup1].pixs.size()+m_supixs[it.second.sup2].pixs.size()));
-        
+        out_str += ConstructFinalClassifierFeature(it.second, x_st, true);  
+        out_file<<out_str<<endl;
+    }
+    out_file.close();
+}
+
+void SuperPixelMerger::FakeInstanceFromGroundTruth(map<UINT32, UINT32> &notfake_vec){
+    CDataTempl<UINT32> &rgn_labelI = GetSuperPixelIdImage();
+    map<UINT32, map<UINT32, UINT32> > cnt_map;
+    for(UINT32 j = 0; j < m_ht; j++){
+        for(UINT32 i=0; i< m_wd; i++){
+            if(m_pInstanceI->GetData(j,i)==0){
+                continue; 
+            }
+            else if(rgn_labelI.GetData(j,i)>1){
+                cnt_map[m_pInstanceI->GetData(j,i)][rgn_labelI.GetData(j, i)] += 1;  
+            }
+            cnt_map[m_pInstanceI->GetData(j,i)][0] += 1;
+        }
+    }
+
+    for(auto it:cnt_map){
+        for(auto it2:it.second){
+            if(it2.first==0){
+                continue;
+            }
+            else if(it2.second >= (it.second)[0]*0.5){
+                notfake_vec[it2.first] = 1;
+            }
+        }
+    }
+}
+
+string SuperPixelMerger::ConstructFinalClassifierFeature_bg(DistSuperPixel &supix, UINT32 &x_st, bool gen_str){
+    auto NeighbourMaxSize = [&](auto &sup){
+        int max_semSize = 0;
+        for(auto it: sup.adjacents){
+            if(m_supixs[it.first].pixs.size() > max_semSize){
+                max_semSize = m_supixs[it.first].pixs.size();
+            }
+        }
+        return max_semSize;
+    };
+    //struct svm_node   *m_pSVMX_bg;
+    
+    UINT32 cnt = x_st;
+    
+    m_pSVMX_bg[cnt].index = 0;
+    m_pSVMX_bg[cnt].value = supix.border.bbox[2]-supix.border.bbox[0];
+    cnt += 1;
+    
+    m_pSVMX_bg[cnt].index = 1;
+    m_pSVMX_bg[cnt].value = supix.border.bbox[3]-supix.border.bbox[1];
+    cnt += 1;
+    
+    m_pSVMX_bg[cnt].index = 2;
+    m_pSVMX_bg[cnt].value = supix.pixs.size();
+    cnt += 1;
+    
+    // histogram_w
+    for(UINT32 k =0; k < e_dist_num_ch*HIST_W_NUM_BIN; k++){
+        if (supix.hist_w[k]==0)
+            continue;
+        m_pSVMX_bg[cnt].index = k+3;
+        m_pSVMX_bg[cnt].value = supix.hist_w[k];
+        cnt += 1;
+    }
+
+    // check neighbour.
+    int max_neiSize = NeighbourMaxSize(supix);
+    if(max_neiSize > 0){
+        m_pSVMX_bg[cnt].index = e_dist_num_ch*HIST_W_NUM_BIN+3;
+        m_pSVMX_bg[cnt].value = max_neiSize;
+        cnt += 1;
+    }
+    
+    
+    // construct string for output
+    string str0 = "";
+    if(gen_str){
+        for(UINT32 k= x_st; k < cnt; k++){
+            str0 += " " + to_string(m_pSVMX_bg[k].index) + ":"+ to_string(m_pSVMX_bg[k].value);
+        }
+    }
+
+    x_st = cnt;
+    return str0;
+
+}
+
+void SuperPixelMerger::WriteClassifierTrainData_bg(string fname){
+    map<UINT32, UINT32> notfake_vec;
+    FakeInstanceFromGroundTruth(notfake_vec);
+
+    string out_str;
+    ofstream out_file(fname, std::ios::app); 
+    for(auto it:m_supixs){
+        if(it.first < 2)
+            continue;
+       
+        UINT32 x_st = 0;
+        out_str  = to_string(notfake_vec[it.first]);
+        out_str += ConstructFinalClassifierFeature_bg(it.second, x_st, true);
         out_file<<out_str<<endl;
     }
     out_file.close();
@@ -308,10 +563,6 @@ void SuperPixelMerger::WriteClassifierTrainData(string fname, bool onlyConnect){
 
 void SuperPixelMerger::Merger(){
 
-#ifdef DEBUG_SEGMENT_MERGE_STEP2
-    AssignOutputLabel();
-    WriteToCSV(m_outLabelI, "./output/test_extend.csv");
-#endif
 
     while(m_merge_seeds.size()>0){
         Seed_1D top_node(0,0.0);
@@ -327,42 +578,74 @@ void SuperPixelMerger::Merger(){
             continue;
         }
 
-        if(top_node.cost > m_pParam->merge_merger_thr)
-            break;
 
+#ifdef DEBUG_SEGMENT_MERGE_STEP2
+        GetSuperPixelIdImage();
+        WriteToCSV(m_outLabelI, "./output/test_extend.csv");
+#endif
         // judge by svm for whether merge or not.
         DistEdge &ref_edge = m_edges[top_node.id0];
-        if(m_svm_en){
-            UINT32 x_st = 0;
-            SingleSuperPixelSVMFeature(ref_edge.sup1, 0, x_st, false);
-            SingleSuperPixelSVMFeature(ref_edge.sup2, m_len_svm_feature, x_st, false);
-            m_pSVMX[x_st].index = 2*m_len_svm_feature;
-            m_pSVMX[x_st].value = ref_edge.new_fit_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
-            x_st += 1;
-
-            m_pSVMX[x_st].index = 2*m_len_svm_feature + 1;
-            m_pSVMX[x_st].value = ref_edge.new_bic_cost/(m_supixs[ref_edge.sup1].pixs.size() + m_supixs[ref_edge.sup2].pixs.size());
-            x_st += 1;
-
-            m_pSVMX[x_st].index = -1;
-            
-            double pred_label = svm_predict_values(m_pSVMmodel, m_pSVMX, m_pSVM_decVals);
-            if(pred_label == 0 || abs(*m_pSVM_decVals) > m_pParam->merge_svm_dec_thr)
-                continue;
-        }
-        
+        //cout<<"supixs: "<<ref_edge.sup1<<", "<<ref_edge.sup2<<":  cost:"<<top_node.cost<<endl;
         if (OPEN_DEBUG)
             cout<<"Merge..."<<top_node.id0<<": "<< ref_edge.sup1<<", "<< ref_edge.sup2<<", "<<top_node.cost<<endl;
+        
         MergeSuperPixels(ref_edge.sup1, ref_edge.sup2);
+        
         if (OPEN_DEBUG)
             cout<<".........End. # superpixel is: "<<m_supixs.size()<< endl<<endl;
 
 #ifdef DEBUG_SEGMENT_MERGE_STEP2
-        AssignOutputLabel();
+        GetSuperPixelIdImage();
         WriteToCSV(m_outLabelI, "./output/test_shrink.csv");
         string py_command = "python pyShow.py";
         system(py_command.c_str());
 #endif
+    }
+
+    // for all left super-pixels, svm judge whether they are single instances.
+    if(m_pParam->merge_svm_en){
+        vector<UINT32> notIns_sups;
+        for(auto it:m_supixs){
+            if(it.first < 2)
+                continue;
+            
+            UINT32 x_st = 0; 
+            ConstructFinalClassifierFeature_bg(it.second, x_st, false);
+            m_pSVMX_bg[x_st].index = -1;
+
+            NormalizeSVMFeature(x_st, 1);
+            double pred_label = svm_predict_values(m_pSVMmodel_bg, m_pSVMX_bg, m_pSVM_decVals);
+            if(pred_label == 0 || (pred_label==1 && abs(*m_pSVM_decVals) < 0.5)){
+                notIns_sups.push_back(it.first);
+            }
+        }
+        for(int k=notIns_sups.size()-1; k>=0; k --){
+            DistSuperPixel &ref_sup = m_supixs[notIns_sups[k]];
+            if(ref_sup.adjacents.size() == 0){
+                continue;
+            }
+            
+            float minMergeCost = 1e9;
+            UINT32 neiSupix    = 1; // back ground
+            for(auto it2:ref_sup.adjacents){
+                if(it2.first < 2)
+                    continue;
+                DistEdge &ref_edge = m_edges[it2.second];
+                float merge_cost;
+                float sem_diff = ComputeEdgeMergeCost(ref_edge, merge_cost);
+                //cout<<notIns_sups[k]<<", "<<it2.first<<" merge cost is "<<merge_cost<<endl;
+                if(sem_diff < m_pParam->merge_edge_semdiff_thr){
+                    merge_cost = 0;
+                }
+                if(merge_cost < m_pParam->merge_merger_thr*2){
+                    if(minMergeCost > merge_cost){
+                        minMergeCost = merge_cost;
+                        neiSupix     = it2.first;
+                    }
+                }
+            }
+            MergeSuperPixels(neiSupix, notIns_sups[k]);
+        }
     }
     //PrintOutInformation();
 }
@@ -406,6 +689,25 @@ void SuperPixelMerger::ComputeGraphWeights(){
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         ComputeEdgeWeights(it->first);
     }
+}
+
+float SuperPixelMerger::ComputeEdgeMergeCost(DistEdge &ref_edge, float &merge_cost){
+    float sem_diff       = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
+    float sem_cost       = sem_diff >= m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
+    
+    DistSuperPixel &supix0 = m_supixs[ref_edge.sup1];
+    DistSuperPixel &supix1 = m_supixs[ref_edge.sup2];
+    ref_edge.new_perimeter = supix0.perimeter + supix1.perimeter - ref_edge.bd_pixs.size();
+    float geo_cost         = ref_edge.new_perimeter/(supix0.pixs.size()-supix1.pixs.size());
+    geo_cost              -= (supix0.perimeter/supix0.pixs.size() + supix1.perimeter/supix1.pixs.size());
+    
+    float merge_fit_cost = ref_edge.new_fit_cost - (supix0.fit_cost + supix1.fit_cost);
+    float merge_bic_cost = ref_edge.new_bic_cost - (supix0.bic_cost + supix1.bic_cost);
+    float fit_bic_cost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost;
+    float connect_cost   = min(supix0.perimeter, supix1.perimeter)/float(ref_edge.bd_pixs.size());
+    merge_cost           = fit_bic_cost + sem_cost + m_pParam->merge_edge_geo_alpha*geo_cost + connect_cost*m_pParam->merge_edge_conn_alpha;
+
+    return sem_diff;
 }
 
 void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
@@ -484,28 +786,36 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
     ComputeMergeInfo(ref_edge, false);
 
     // compute merge cost.
-    float sem_diff       = ComputeSemanticDifference(ref_edge.sup1, ref_edge.sup2);
+    float sem_diff = ComputeEdgeMergeCost(ref_edge, ref_edge.mergecost);
     if((ref_edge.sup1==1 || ref_edge.sup2 == 1) &&sem_diff < m_pParam->merge_edge_semdiff_thr){
         ref_edge.mergecost = 0;
     }
-    else{
-        float sem_cost       = sem_diff >= m_pParam->merge_edge_semdiff_thr? m_pParam->merge_edge_semdiff_pnty : 0;
-        
-        DistSuperPixel &supix0 = m_supixs[ref_edge.sup1];
-        DistSuperPixel &supix1 = m_supixs[ref_edge.sup2];
-        ref_edge.new_perimeter = supix0.perimeter + supix1.perimeter - ref_edge.bd_pixs.size();
-        float geo_cost       = ref_edge.new_perimeter/(supix0.pixs.size()-supix1.pixs.size());
-        geo_cost            -= (supix0.perimeter/supix0.pixs.size() + supix1.perimeter/supix1.pixs.size());
-        
-        float merge_fit_cost = ref_edge.new_fit_cost - (supix0.fit_cost + supix1.fit_cost);
-        float merge_bic_cost = ref_edge.new_bic_cost - (supix0.bic_cost + supix1.bic_cost);
-        float fit_bic_cost   = merge_fit_cost + m_pParam->merge_edge_bic_alpha*merge_bic_cost;
-        float connect_cost   = min(supix0.perimeter, supix1.perimeter)/float(ref_edge.bd_pixs.size());
-        ref_edge.mergecost   = fit_bic_cost + sem_cost + m_pParam->merge_edge_geo_alpha*geo_cost + connect_cost*m_pParam->merge_edge_conn_alpha; 
+    
+    if(ref_edge.mergecost < m_pParam->merge_merger_thr){
+        // push new edge to seed stock.
+        if(m_pParam->merge_svm_en){
+            UINT32 x_st = 0;
+            SingleSuperPixelSVMFeature(ref_edge.sup1, 0, x_st, false);
+            SingleSuperPixelSVMFeature(ref_edge.sup2, m_len_svm_feature, x_st, false);
+            ConstructFinalClassifierFeature(ref_edge, x_st, false);
+            m_pSVMX[x_st].index = -1;
+            
+            NormalizeSVMFeature(x_st, 0);
+            double pred_label = svm_predict_values(m_pSVMmodel, m_pSVMX, m_pSVM_decVals);
+            float merge_cost   = (float)(m_pSVM_decVals[0]);
+            if((pred_label == 1 && merge_cost < 0) || (pred_label==0 && merge_cost > 0)){
+                merge_cost = -1 * merge_cost; 
+            }
+            if(merge_cost > m_pParam->merge_svm_dec_thr){
+                Seed_1D merge_seed(edge, ref_edge.mergecost);
+                m_merge_seeds.push(merge_seed);
+            }
+        }
+        else{
+            Seed_1D merge_seed(edge, ref_edge.mergecost);
+            m_merge_seeds.push(merge_seed);
+        }
     }
-    // push new edge to seed stock.
-    Seed_1D merge_seed(edge, ref_edge.mergecost);
-    m_merge_seeds.push(merge_seed);
 }
 
 void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){

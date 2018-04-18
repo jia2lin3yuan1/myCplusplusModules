@@ -24,6 +24,7 @@
 // #define DEBUG_SEGMENT_GROW
 
 // #define DEBUG_SEGMENT_MERGE
+// #define DEBUG_SEGMENT_MERGE_STEP2
 
 // #define DEBUG_FINAL_TRIMAP
 
@@ -183,9 +184,9 @@ typedef struct Global_Parameters{
         merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e9;
 
-        merge_svm_en             = 1;
-        merge_svm_dec_thr        = 5e0;
-        merge_merger_thr         = 5e3;
+        merge_svm_en             = 0;
+        merge_svm_dec_thr        = 2e-1;
+        merge_merger_thr         = 1e3;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;
