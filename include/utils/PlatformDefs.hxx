@@ -130,6 +130,7 @@ typedef struct Global_Parameters{
     float  merge_edge_semdiff_thr;
     float  merge_edge_semdiff_pnty;
 
+    bool   merge_gen_svm_train_en;
     bool   merge_svm_en;
     double merge_svm_dec_thr;
     float  merge_merger_thr;
@@ -179,14 +180,15 @@ typedef struct Global_Parameters{
         merge_supix_bic_addi_len = 1;
         
         merge_edge_conn_alpha    = 1e1;
-        merge_edge_geo_alpha     = 2e2;
-        merge_edge_bic_alpha     = 1e0;
+        merge_edge_geo_alpha     = 5e1;
+        merge_edge_bic_alpha     = 8e-1;
         merge_edge_semdiff_thr   = 7e-1;
         merge_edge_semdiff_pnty  = 1e9;
 
-        merge_svm_en             = 0;
+        merge_gen_svm_train_en   = 1;
+        merge_svm_en             = 1;
         merge_svm_dec_thr        = 2e-1;
-        merge_merger_thr         = 1e3;
+        merge_merger_thr         = 4e3;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;

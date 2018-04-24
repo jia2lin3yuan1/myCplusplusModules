@@ -96,8 +96,8 @@ public:
 template<typename NODE, typename EDGE, typename BORDER>
 class Graph{
 protected:
-    map<UINT32, BORDER> m_borders;
-    map<UINT32, EDGE>   m_edges;
+    map<UINT32, BORDER> m_borders; // border pixels.
+    map<UINT32, EDGE>   m_edges;   // edges, 
     map<UINT32, NODE>   m_supixs;  // super pixel starting from label 1. label 0 is assigned to uneffective pixels and out-of-boundary case.
 
     const CDataTempl<UINT32>  *m_pInLabelI;
@@ -220,10 +220,10 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
 
     // Main process.
     // 1. add all pixels in sup1 into sup0.and update sup0's attribute.
-    UpdateSuperPixel(sup0, m_supixs[sup0].adjacents[sup1]);
     for(auto it=m_supixs[sup1].pixs.begin(); it != m_supixs[sup1].pixs.end(); it++){
         m_supixs[sup0].pixs.push_back(*it);
     }
+    UpdateSuperPixel(sup0, m_supixs[sup0].adjacents[sup1]);
 
     // 2. merge sup1's adjacents to sup0's adjacents.
     for(auto it=m_supixs[sup1].adjacents.begin(); it != m_supixs[sup1].adjacents.end(); it++){

@@ -79,6 +79,7 @@ int main(){
     cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
     cin >> fpath;
     while(fpath[0] == '2'){
+        cout<<"Processing image: "<<fpath<<endl;
         fpath = "./input/"+fpath+"/";
         testSegmentGrow(fpath);
         cnt += 1; 

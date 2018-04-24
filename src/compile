@@ -1,11 +1,13 @@
 #!/bin/bash
 
-#g++ -std=c++1y testDataTempl.cxx -o aTest -g -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
+baseDir="/home/yuanjial/Projects/Python-pure/instanceinference/code/Cython/cython_segments/include/"
 
-#g++ -std=c++1y testSegmentFitting.cxx -o aTest -g -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
+#g++ -std=c++1y testDataTempl.cxx -o aTest -g -I $baseDir
 
-g++ -std=c++1y ../include/svm/svm.cpp testSegmentGrow.cxx -o aTestGrow -g -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
+#g++ -std=c++1y testSegmentFitting.cxx -o aTest -g -I $baseDir
 
-#g++ -std=c++1y testSegmentGrow.cxx -o aTestGrow -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
+g++ -std=c++1y ../include/svm/svm.cpp testSegmentGrow.cxx -o aTestGrow -g -I $baseDir
 
-#g++ -std=c++1y testGraph.cxx -o graphTest -g -I "/home/yuanjial/Code/Python-pure/instanceinference-dir/code/Cython/cython_segments/include/"
+#g++ -std=c++1y testSegmentGrow.cxx -o aTestGrow -I $baseDir 
+
+#g++ -std=c++1y testGraph.cxx -o graphTest -g -I $baseDir
