@@ -149,7 +149,7 @@ void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT3
 }
 
 void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
-    UINT32 seg_id = m_dp_seg.size();
+    UINT32 seg_id = m_dp_seg.size()+1;
     
     // assign. 
     UINT32 y0 = ptY[dp_idxs[1]];

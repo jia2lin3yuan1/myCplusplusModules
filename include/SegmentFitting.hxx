@@ -68,11 +68,14 @@ protected:
     // prepare data for computing
     void InitLUTx(UINT32 len);
 
+    // prepare data for computing based on each line.
+    void ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &ptX, UINT32 *dist_ch, const auto &key_idxs, 
+                            CDataTempl<float> &out_lutY0, CDataTempl<float> &out_lutY1);
+    
     // find key points given point list.
     void FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, const vector<UINT32> &ptX, UINT32 *dist_ch, vector<UINT32> &out_key_idxs);
     // attribute of segment starting at key_idxs[stK]:
-    vector<vector<float> > FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
-                                    const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs);
+    vector<float> FitSegmentError_ij(UINT32 idx_i, UINT32 idx_j, float meanY, const CDataTempl<float> &lutY, const vector<UINT32> &key_idxs);
     void SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK, 
                                     const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs);
     
@@ -99,6 +102,73 @@ void Segment_Fit::InitLUTx(UINT32 len){
     }
 }
 
+
+/*
+ * Compute LUT of y related value in fitting a segment in each line: y = w*x + b.
+ * input:  ptY, ptX -- point coordinates in the line.
+ *         dist_ch  -- size = 2, the channels of the distance tensor it is working on
+ *         key_idxs -- indexs of key points on the line, start counting from 0
+ *        
+ * output: CDataTempl<float> (len_key, len_key, 3). for:
+ *            0-acc_y  ** 1-acc_yx  ** 2-acc_y_2
+ */
+void Segment_Fit::ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &ptX, UINT32 *dist_ch, const auto &key_idxs, 
+                                    CDataTempl<float> &out_lutY0, CDataTempl<float> &out_lutY1){
+    UINT32 num_keyPt = key_idxs.size();
+
+    // the first channel.
+    out_lutY0.Init(num_keyPt, num_keyPt, 3);
+    for(UINT32 j = 0; j < num_keyPt-1; j ++){
+        float distV   = m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[0]);
+        float x       = 0;
+        float acc_y   = distV;
+        float acc_xy  = 0;
+        float acc_y_2 = pow(distV, 2);
+        
+        UINT32 k = j+1;
+        for(UINT32 i = key_idxs[j]+1; i < numPt; i++){
+            distV    = m_pDistMat->GetData(ptY[i], ptX[i], dist_ch[0]);
+            x       += 1;
+            acc_y   += distV;
+            acc_xy  += distV*m_lutX.GetData(x, 5);
+            acc_y_2 += pow(distV, 2);
+            
+            if((k < num_keyPt-1 &&i == key_idxs[k]-1) || (k == num_keyPt-1 && i == numPt-1)){
+                out_lutY0.SetData(acc_y, j, k, 0);
+                out_lutY0.SetData(acc_xy, j, k, 1);
+                out_lutY0.SetData(acc_y_2, j, k, 2);
+                k += 1;
+            }
+        } 
+    }
+    // the second channel, fitting in an inverse Y: that y(n-k) = w*x[k] + b.
+    out_lutY1.Init(num_keyPt, num_keyPt, 3);
+    for(int j = num_keyPt-1; j >= 0; j --){
+        float distV   = j<num_keyPt-1? 0 : m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[1]);
+        float x       = j<num_keyPt-1? -1: 0;
+        float acc_y   = distV;
+        float acc_xy  = 0;
+        float acc_y_2 = pow(distV, 2);
+        
+        int k = j-1;
+        for(int i = key_idxs[j]-1; i >= 0 && k >= 0; i--){
+            distV    = m_pDistMat->GetData(ptY[i], ptX[i], dist_ch[1]);
+            x       += 1;
+            acc_y   += distV;
+            acc_xy  += distV*m_lutX.GetData(x, 5);
+            acc_y_2 += pow(distV, 2);
+            
+            if(i == key_idxs[k]){
+                out_lutY1.SetData(acc_y, k, j, 0);
+                out_lutY1.SetData(acc_xy, k, j, 1);
+                out_lutY1.SetData(acc_y_2, k, j, 2);
+                k -= 1;
+            }
+        } 
+    }
+}
+
+
 void Segment_Fit::SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK, 
                     const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs){
     UINT32 idx_len = key_idxs.size();
@@ -122,7 +192,7 @@ void Segment_Fit::SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK,
  *     w = (n\sum_{yx}-\sum_y\sum_x) / (n\sum_x^2-\sum_x\sum_x)
  *     b = sum_(y-wx)/n
  *
- *     b = (\sum_y\sum_x^2-\sum_y\sum_x) / (n\sum_x^2-\sum_x\sum_x)
+ *     b = (\sum_y\sum_x^2-\sum_{yx}\sum_x) / (n\sum_x^2-\sum_x\sum_x)
  *     w = sum_(yx-bx)/sum_x^2.
  *
  *     err = sum((wx+b-y)^2) = sum(w^2x^2+2wbx+b^2 - 2*(wxy+by) + y^2)
@@ -134,49 +204,36 @@ void Segment_Fit::SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK,
  *     ptY/ptX: all points.
  *     key_idxs: index of key points.
  */
-vector<vector<float> > Segment_Fit::FitErrorStartFrom(UINT32 dist_ch, float meanY, UINT32 len, UINT32 stK,
-                                            const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs){
-    // compute acc_y, acc_xy, acc_y_2
-    vector<float> acc_y(len, 0);
-    vector<float> acc_xy(len, 0);
-    vector<float> acc_y_2(len, 0);
-
-    float distV = m_pDistMat->GetData(ptY[key_idxs[stK]], ptX[key_idxs[stK]], dist_ch);
-    acc_y[0]    = distV;
-    acc_xy[0]   = 0;
-    acc_y_2[0]  = pow(distV, 2);
-    for(UINT32 k =1; k < len; k++){
-        distV      = m_pDistMat->GetData(ptY[key_idxs[stK]+k], ptX[key_idxs[stK]+k], dist_ch);
-        acc_y[k]   = acc_y[k-1]   + distV;
-        acc_xy[k]  = acc_xy[k-1]  + distV*m_lutX.GetData(k, 5);
-        acc_y_2[k] = acc_y_2[k-1] + pow(distV, 2);
+vector<float> Segment_Fit::FitSegmentError_ij(UINT32 idx_i, UINT32 idx_j, float meanY, const CDataTempl<float> &lutY, const vector<UINT32> &key_idxs){
+    vector<float> fit_rst(3, 0);
+    if(lutY.GetData(idx_i, idx_j, 0) == 0){
+        return fit_rst;
     }
 
-    // compute w and b for segments starting at stK and ending at latter key points
-    UINT32 idx_len = key_idxs.size();
-    vector<vector<float> > fit_err(idx_len, vector<float>(3, 0.0));
-    for(UINT32 k =stK+1; k < idx_len; k ++){
-        UINT32 tk = key_idxs[k] - key_idxs[stK]; // length of segments [point_stK, point_k]
-        float w, b;
-        if (m_fitseg_method == 1){
-            b = (acc_y[tk]*m_lutX.GetData(tk, 0) - acc_xy[tk]*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 2);
-            w = (acc_xy[tk] - b*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 4);
-        }
-        else{
-            w = (acc_xy[tk]*(m_lutX.GetData(tk, 5)+1) - acc_y[tk]*m_lutX.GetData(tk, 1))*m_lutX.GetData(tk,2);
-            b = (acc_y[tk] - w*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 3);
-        }
-
-        float term_0  = w*w*m_lutX.GetData(tk, 0) + 2*w*b*m_lutX.GetData(tk, 1) + b*b*(m_lutX.GetData(tk, 5)+1);
-        float term_1  = 2*(w*acc_xy[tk] + b*acc_y[tk]);
-        float err_sum = term_0 - term_1 + acc_y_2[tk];
-        err_sum       = err_sum>=0? err_sum : -err_sum;
-        fit_err[k][0] = err_sum/max(min(acc_y[tk], meanY * (m_lutX.GetData(tk, 5)+1)), float(1e-9));
-        fit_err[k][1] = w;
-        fit_err[k][2] = b;
+    // fit w, b:  y = wx + b.
+    UINT32 tk = key_idxs[idx_j] - key_idxs[idx_i] - 1;
+    float w, b;
+    if (m_fitseg_method == 1){
+        b = (lutY.GetData(idx_i, idx_j, 0)*m_lutX.GetData(tk, 0) - lutY.GetData(idx_i, idx_j, 1)*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 2);
+        w = (lutY.GetData(idx_i, idx_j, 1) - b*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 4);
     }
+    else{
+        w = (lutY.GetData(idx_i, idx_j, 1)*(m_lutX.GetData(tk, 5)+1) - lutY.GetData(idx_i, idx_j, 0)*m_lutX.GetData(tk, 1))*m_lutX.GetData(tk,2);
+        b = (lutY.GetData(idx_i, idx_j, 0) - w*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 3);
+    }
+    
+    // compute error
+    float term_0  = w*w*m_lutX.GetData(tk, 0) + 2*w*b*m_lutX.GetData(tk, 1) + b*b*(m_lutX.GetData(tk, 5)+1);
+    float term_1  = 2*(w*lutY.GetData(idx_i, idx_j, 1) + b*lutY.GetData(idx_i, idx_j,0));
+    float err_sum = term_0 - term_1 + lutY.GetData(idx_i, idx_j, 2);
+    err_sum       = err_sum>=0? err_sum : -err_sum;
 
-    return fit_err;
+    // return
+    fit_rst[0] = err_sum/min(lutY.GetData(idx_i, idx_j, 0), meanY*(m_lutX.GetData(tk, 5)+1));
+    fit_rst[1] = w;
+    fit_rst[2] = b;
+    
+    return fit_rst;
 }
 
 /*
@@ -230,23 +287,26 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
         ComputeMeanDistance(dist_ch, num_pt, ptYs, ptXs, meanD);
         vector<UINT32> key_idxs;
         FindKeyPoints(num_pt, ptYs, ptXs, dist_ch, key_idxs);
+        CDataTempl<float> lut_Y0;
+        CDataTempl<float> lut_Y1;
+        ComputeLUTy_byLine(num_pt, ptYs, ptXs, dist_ch, key_idxs, lut_Y0, lut_Y1);
        
         // compute information for each small segment.
         UINT32 num_key = key_idxs.size();
         CDataTempl<float> segInfo(num_key, num_key, 5);
         map<Mkey_2D, vector<float>, MKey2DCmp>      semScore;
         map<Mkey_2D, map<string, float>, MKey2DCmp> fitResult;
-        for(UINT32 j=0; j < num_key-1; j++){
-            UINT32 len_2end = num_pt - key_idxs[j];
-            vector<vector<float> > fit_err_0 = FitErrorStartFrom(dist_ch[0], meanD[0], len_2end, j, ptYs, ptXs, key_idxs); 
-            vector<vector<float> > fit_err_1 = FitErrorStartFrom(dist_ch[1], meanD[1], len_2end, j, ptYs, ptXs, key_idxs); 
-            SemanticScoreStartFrom(semScore, len_2end, j, ptYs, ptXs, key_idxs);
-            for(UINT32 i=j+1; i<key_idxs.size(); i++){
-                segInfo.SetData(fit_err_0[i][0]+fit_err_1[i][0], j, i, 0);
-                segInfo.SetData(fit_err_0[i][1], j, i, 1);
-                segInfo.SetData(fit_err_0[i][2], j, i, 2);
-                segInfo.SetData(fit_err_1[i][1], j, i, 3);
-                segInfo.SetData(fit_err_1[i][2], j, i, 4);
+        for(UINT32 i=0; i < num_key-1; i++){
+            UINT32 len_2end = num_pt - key_idxs[i];
+            SemanticScoreStartFrom(semScore, len_2end, i, ptYs, ptXs, key_idxs);
+            for(UINT32 j=i+1; j<key_idxs.size(); j++){
+                vector<float> fit_err_0 = FitSegmentError_ij(i, j, meanD[0], lut_Y0, key_idxs);
+                vector<float> fit_err_1 = FitSegmentError_ij(i, j, meanD[1], lut_Y1, key_idxs);
+                segInfo.SetData(fit_err_0[0]+fit_err_1[0], i, j, 0);
+                segInfo.SetData(fit_err_0[1], i, j, 1);
+                segInfo.SetData(fit_err_0[2], i, j, 2);
+                segInfo.SetData(fit_err_1[1], i, j, 3);
+                segInfo.SetData(fit_err_1[2], i, j, 4);
             }
         }
 
@@ -266,29 +326,71 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
  */
 void Segment_Fit::FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, const vector<UINT32> &ptX, UINT32 *dist_ch, 
                                 vector<UINT32> &out_key_idxs){
-    auto IsKeyPoint = [&](UINT32 k){
+    auto IsKeyPoint = [&](UINT32 k, int &state_0, int &state_1){
+        int isKey = -1;
         UINT32 cy = ptY[k],   cx = ptX[k];
-        // background point could not be a key point
-        if(m_pSem_bg->GetData(cy, cx) == 1)
-            return false;
-
-        UINT32 ny = ptY[k+1], nx = ptX[k+1];
         UINT32 py = ptY[k-1], px = ptX[k-1];
-        // check semantic background.
-        if(m_pSem_bg->GetData(cy, cx)==0 && (m_pSem_bg->GetData(py, px)==1 || m_pSem_bg->GetData(ny, nx)==1))
-            return true;
-
-        // check semantic label.
-        if(m_pSemI->GetData(cy,cx) != m_pSemI->GetData(py, px))
-            return true;
-
-        // check distance channels.
-        for(UINT32 i=0; i < 2; i++){
-            UINT32 ch = dist_ch[i];
-            if((m_pDistMat->GetData(cy, cx, ch)-m_pDistMat->GetData(py, px, ch)) * (m_pDistMat->GetData(cy, cx, ch)-m_pDistMat->GetData(ny, nx, ch))>0)
-                return true;
+        float dist_c0 = m_pDistMat->GetData(cy, cx, dist_ch[0]);
+        float dist_p0 = m_pDistMat->GetData(py, px, dist_ch[0]);
+        float dist_c1 = m_pDistMat->GetData(cy, cx, dist_ch[1]);
+        float dist_p1 = m_pDistMat->GetData(py, px, dist_ch[1]);
+        if(m_pSem_bg->GetData(cy, cx) == 0 && (dist_p0 == 0 || dist_p1 == 0)){
+            // check semantic background.
+            isKey = 1;
         }
+        else if(m_pSem_bg->GetData(cy, cx) == 1 && (dist_p0 > 0 || dist_p1 > 0)){
+            // check semantic background.
+            isKey = 1;
+        }
+        else if(m_pSem_bg->GetData(cy, cx) == 1){
+            // background point could not be a key point
+            isKey = 0;
+        }
+        else if(m_pSemI->GetData(cy,cx) != m_pSemI->GetData(py, px)){
+            // check semantic label.
+            isKey = 1;
+        }
+        if(isKey >= 0){
+            state_0 = 0; 
+            state_1 = 0; 
 
+            return isKey==0? false : true;
+        }
+       
+        return true;
+
+        // check distance channels (increasing).
+        if(dist_c0 > dist_p0){
+            if(state_0 == -1 || dist_p0 == 0){
+                state_0 = 0;
+                return true;
+            }
+            state_0 = 1;
+        }
+        else if(dist_c0 < dist_p0){
+            if(state_0 == 1 || dist_c0 == 0){
+                state_0 = 0;
+                return true;
+            }
+            state_0 = -1;
+        }
+        
+        // check distance channels (increasing).
+        if(dist_c1 < dist_p1){
+            if(state_1 == 1 || dist_c1 == 0){
+                state_1 = 0;
+                return true;
+            }
+            state_1 = -1;
+        }
+        else if(dist_c1 > dist_p1){
+            if(state_1 == -1 || dist_p1 == 0){
+                state_0 = 0;
+                return true;
+            }
+            state_0 = 1;
+        }
+        
         return false;
     };
     
@@ -299,8 +401,9 @@ void Segment_Fit::FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, c
     out_key_idxs.insert(out_key_idxs.end(), 0);
    
     // check points [1, numPt-2]
+    int state_0 = 0,  state_1 = 0;
     for(UINT32 k=1; k < numPt-1; k ++){
-        if(IsKeyPoint(k)){
+        if(IsKeyPoint(k, state_0, state_1)){
             out_key_idxs.insert(out_key_idxs.end(), k);
         }
     }
