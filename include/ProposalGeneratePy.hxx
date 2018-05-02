@@ -57,14 +57,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     // case what we are debuging.
 #ifdef DEBUG_SEGMENT_STOCK
     out_labelI = segStock.GetSegmentLabelImage();
-    for(UINT32 y=0; y < imgHt; y++){ for(UINT32 x=0; x < imgWd; x++){
-           labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
-           cnt += 1;
-        }
-    }
-    return;
-#endif
-    
+#else
     // ----------------------
     // generate super pixels based on segment.
     std::cout<<"step 2: growing based on segment "<<std::endl; 
@@ -73,14 +66,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     
 #ifdef DEBUG_SEGMENT_GROW
     out_labelI = segGrow.GetFinalResult();
-    for(UINT32 y=0; y < imgHt; y++){
-        for(UINT32 x=0; x < imgWd; x++){
-           labelArr[cnt] = out_labelI.GetDataByIdx(cnt);
-           cnt += 1;
-        }
-    }
-    return;
-#endif
+#else
 
     // ----------------------
     //merge based on generated super pixels.
@@ -110,8 +96,9 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     trimapGen.GetOutputData(out_labelI);
 #else
     out_labelI = supixMerger.AssignOutputLabel();
-#endif
-
+#endif // Trimap
+#endif // Grow
+#endif // Stock
 
     // ------------------------------------
     // CDataTemplate to vector.

@@ -494,7 +494,7 @@ void SuperPixelMerger::WriteClassifierTrainData_bg(string fname){
                 if(it2.first==0){
                     continue;
                 }
-                else if(it2.second >= (it.second)[0]*0.6){ // IoU threshold.
+                else if(it2.second >= ((it.second)[0] + m_supixs[it2.first].pixs.size()-it2.second)*0.4){ // IoU threshold.
                     notfake_vec[it2.first] = 1;
                 }
             }

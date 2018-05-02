@@ -17,18 +17,18 @@
 #include <math.h>
 
 /** Turn on / Turn off some functions. **/
-//#define DEBUG_SEGMENT_STOCK
+// #define DEBUG_SEGMENT_STOCK
 
 // #define DEBUG_SEGMENT_GROW_STEP
+
 // #define DEBUG_SEGMENT_GROW
 
-#define DEBUG_SEGMENT_MERGE
+// #define DEBUG_SEGMENT_MERGE
 // #define DEBUG_SEGMENT_MERGE_STEP2
 
 // #define DEBUG_FINAL_TRIMAP
 
-// output information on console.
-#define OPEN_DEBUG 0
+#define OPEN_DEBUG 0 // output information on console.
 
 
 // Global Data Type and Structure.
@@ -154,26 +154,26 @@ typedef struct Global_Parameters{
     // constructor to assign value
     Global_Parameters(){
         // segment fitting parameters.
-        segFit_dp_semdiff_thr  = 5e-1;
-        segFit_dp_bic_alpha    = 5e-2;
-        segFit_dp_err_thr      = 1e-1;
+        segFit_dp_semdiff_thr  = 7e-1;
+        segFit_dp_bic_alpha    = 1e-1;
+        segFit_dp_err_thr      = 5e-2;
         segFit_dp_inf_err      = 1e4;
 
         // segment growing paramters.
         segGrow_seed_sem_alpha = 5e-2;
-        segGrow_seed_bic_alpha = 1e0;
-        segGrow_seed_bic_scale = 1e-1;
+        segGrow_seed_bic_alpha = 5e-1;
+        segGrow_seed_bic_scale = 5e-1;
         segGrow_seed_size_thr  = 5;
 
-        segGrow_extd_semdiff_thr      = 5e-1;
+        segGrow_extd_semdiff_thr      = 7e-1;
 
-        segGrow_shrk_bic_alpha        = 5e2;
+        segGrow_shrk_bic_alpha        = 5e-1;
         segGrow_shrk_bic_addi_len     = 2;
-        segGrow_shrk_fit_cost_thr     = 1e-2;
+        segGrow_shrk_fit_cost_thr     = 5e-2;
         segGrow_shrk_fit_cost_penalty = 1e4;
         segGrow_shrk_cost_thr         = 0;
 
-        segGrow_proposal_size_thr     = 4;
+        segGrow_proposal_size_thr     = 40;
         segGrow_rm_label0             = true;
 
         // segment merge.
@@ -186,9 +186,9 @@ typedef struct Global_Parameters{
         merge_edge_semdiff_pnty  = 1e9;
 
         merge_gen_svm_train_en   = 0;
-        merge_svm_en             = 0;
-        merge_svm_dec_thr        = 3e-1;
-        merge_merger_thr         = 0;
+        merge_svm_en             = 1;
+        merge_svm_dec_thr        = 1e-1;
+        merge_merger_thr         = 3e3;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;

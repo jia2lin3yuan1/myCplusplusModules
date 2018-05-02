@@ -1,0 +1,10 @@
+#!/bin/bash
+
+mv SegmentFitting.hxx SegmentFitting_cls.hxx
+mv SegmentFitting_reg.hxx SegmentFitting.hxx
+
+mv SegmentGrow.hxx SegmentGrow_cls.hxx
+mv SegmentGrow_reg.hxx SegmentGrow.hxx
+
+mv utils/PlatformDefs.hxx utils/PlatformDefs_cls.hxx
+mv utils/PlatformDefs_reg.hxx utils/PlatformDefs.hxx

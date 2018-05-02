@@ -44,7 +44,7 @@ void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<float> 
 }
 
 
-void testSegmentGrow(std::string fpath){
+void testSegmentGrow(std::string fpath, std::string fname){
     CDataTempl<UINT32> shape(2);
     ReadFromCSV(shape, fpath+"size.csv", 0);
     UINT32 imgHt = shape.GetData(0);
@@ -63,9 +63,12 @@ void testSegmentGrow(std::string fpath){
     
     // visulizing.
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
-    return; 
-    string py_command = "python pyShow.py";
+    // return; 
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
+        string outPath   = "output/"+fname+std::to_string(k)+".png";
+        //string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
+        string py_command = std::string("python pyShow.py");
+        cout<<py_command<<endl; 
         WriteToCSV(maskI, "./output/test.csv", k);
         system(py_command.c_str());
     } 
@@ -74,17 +77,17 @@ void testSegmentGrow(std::string fpath){
 
 int main(){
     UINT32 cnt = 0;
-    std::string fpath;
+    std::string fname;
     
     cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
-    cin >> fpath;
-    while(fpath[0] == '2'){
-        cout<<"Processing image: "<<fpath<<endl;
-        fpath = "./input/"+fpath+"/";
-        testSegmentGrow(fpath);
+    cin >> fname;
+    while(fname[0] == '2'){
+        cout<<"Processing image: "<<fname<<endl;
+        std::string fpath = "./input_cls/"+fname+"/";
+        testSegmentGrow(fpath, fname);
         cnt += 1; 
         cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
-        cin >> fpath;
+        cin >> fname;
     }
     return 0;
 }
