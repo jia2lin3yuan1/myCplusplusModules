@@ -17,7 +17,7 @@
 #include <math.h>
 
 /** Turn on / Turn off some functions. **/
-//#define DEBUG_SEGMENT_STOCK
+// #define DEBUG_SEGMENT_STOCK
 
 // #define DEBUG_SEGMENT_GROW_STEP
 // #define DEBUG_SEGMENT_GROW
@@ -94,6 +94,23 @@ struct MKey2DCmp{
     }
 };
 
+//
+typedef struct MapKey_3D{
+    UINT32 id0;
+    UINT32 id1;
+    UINT32 id2;
+    MapKey_3D(UINT32 a=0, UINT32 b=0, UINT32 c=0){id0=a; id1 = b; id2=c;}
+}Mkey_3D;
+struct MKey3DCmp{
+    bool operator()(const Mkey_3D &lhs, const Mkey_3D &rhs){
+        if(lhs.id0 != rhs.id0)
+            return lhs.id0 < rhs.id0;
+        else if(lhs.id1 != rhs.id1)
+            return lhs.id1 < rhs.id1;
+        else
+            return lhs.id2 < rhs.id2;
+    }
+};
 
 // Global Parameters.
 typedef struct Global_Parameters{
@@ -124,11 +141,14 @@ typedef struct Global_Parameters{
     // segment merge.
     UINT32 merge_supix_bic_addi_len;
     
+    float  merge_edge_inf_cost;
     float  merge_edge_conn_alpha;
     float  merge_edge_geo_alpha;
     float  merge_edge_bic_alpha;
+    float  merge_edge_biascost_alpha;
     float  merge_edge_semdiff_thr;
-    float  merge_edge_semdiff_pnty;
+    float  merge_edge_semcost_thr;
+    float  merge_edge_semcost_alpha;
 
     bool   merge_gen_svm_train_en;
     bool   merge_svm_en;
@@ -161,7 +181,7 @@ typedef struct Global_Parameters{
 
         // segment growing paramters.
         segGrow_seed_sem_alpha = 5e-2;
-        segGrow_seed_bic_alpha = 1e0;
+        segGrow_seed_bic_alpha = 5e-1;
         segGrow_seed_bic_scale = 1e-1;
         segGrow_seed_size_thr  = 5;
 
@@ -178,17 +198,20 @@ typedef struct Global_Parameters{
 
         // segment merge.
         merge_supix_bic_addi_len = 1;
-        
-        merge_edge_conn_alpha    = 1e1;
-        merge_edge_geo_alpha     = 5e1;
-        merge_edge_bic_alpha     = 8e-1;
-        merge_edge_semdiff_thr   = 7e-1;
-        merge_edge_semdiff_pnty  = 1e9;
+
+        merge_edge_inf_cost       = 1e9;
+        merge_edge_conn_alpha     = 1e1;
+        merge_edge_geo_alpha      = 1e1;
+        merge_edge_bic_alpha      = 1e-1;
+        merge_edge_biascost_alpha = 5e1;
+        merge_edge_semdiff_thr    = 6e-1;
+        merge_edge_semcost_thr    = 1e-1;
+        merge_edge_semcost_alpha  = 1e-1;
 
         merge_gen_svm_train_en   = 0;
         merge_svm_en             = 0;
         merge_svm_dec_thr        = 3e-1;
-        merge_merger_thr         = 0;
+        merge_merger_thr         = 1e0;
 
         // tri-map generate
         tri_supix_bic_addi_len   = 1;

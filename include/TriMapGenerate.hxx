@@ -186,6 +186,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
 
         // H direction
         float fit_diff_h = 0;
+        /*
         vector<LineBD> &linebd_h_h = supix_h.border.border_h;
         vector<LineBD> &linebd_s_h = supix_s.border.border_h;
         for(UINT32 k = cov_y0; k <= cov_y1; k++){
@@ -195,9 +196,11 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
                                               linebd_s_h[sk].minK, linebd_s_h[sk].maxK, sup_spec, supixIdMap);
         }
         fit_diff_h = fit_diff_h / (cov_y0<= cov_y1? cov_y1-cov_y0+1 : 1);
-        
+        */
+
         // V direction.
         float fit_diff_v = 0;
+        /*
         vector<LineBD> &linebd_h_v = supix_h.border.border_v;
         vector<LineBD> &linebd_s_v = supix_s.border.border_v;
         for(UINT32 k = cov_x0; k <= cov_x1; k++){
@@ -207,6 +210,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
                                                  linebd_s_v[sk].minK, linebd_s_v[sk].maxK, sup_spec, supixIdMap);
         }
         fit_diff_v = fit_diff_v / (cov_x0<= cov_x1? cov_x1-cov_x0+1 : 1);
+        */
 
         float prob_h = cov_y0 < cov_y1? exp(-fit_diff_h * m_pParam->tri_edge_fit_alpha) : 0;
         float prob_v = cov_x0 < cov_x1? exp(-fit_diff_v * m_pParam->tri_edge_fit_alpha) : 0;
@@ -233,7 +237,7 @@ void Trimap_Generate::InitialClusterField(CDataTempl<UINT32> &supixIdMap){
         cost += sem_cost * m_pParam->tri_seed_sem_alpha;
 
         // fitting cost.
-        cost += supix.fit_cost * m_pParam->tri_seed_fit_alpha;
+        cost += supix.sum_fit_cost * m_pParam->tri_seed_fit_alpha;
 
         // size cost.
         cost += 1.0/log(supix.pixs.size());

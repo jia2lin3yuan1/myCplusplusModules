@@ -22,7 +22,7 @@ using namespace std;
 //
 
 enum Dist_Ch {e_dist_lft=0, e_dist_rht, e_dist_bot, e_dist_top, e_dist_num_ch};
-enum Fit_Mode {e_fit_hor=0, e_fit_ver};
+enum Fit_Mode {e_fit_hor=0, e_fit_ver, e_fit_num};
 class Segment_Fit{
 protected:
     // inpute

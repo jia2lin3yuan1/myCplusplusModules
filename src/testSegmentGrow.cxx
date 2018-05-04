@@ -65,9 +65,9 @@ void testSegmentGrow(std::string fpath, std::string fname){
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
     // return; 
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
-        string outPath   = "output/"+fname+std::to_string(k)+".png";
-        //string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
-        string py_command = std::string("python pyShow.py");
+        string outPath   = "output/"+fname+std::string("_")+std::to_string(k)+".png";
+        string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
+        //string py_command = std::string("python pyShow.py");
         cout<<py_command<<endl; 
         WriteToCSV(maskI, "./output/test.csv", k);
         system(py_command.c_str());

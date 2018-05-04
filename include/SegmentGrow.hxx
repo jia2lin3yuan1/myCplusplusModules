@@ -727,8 +727,6 @@ void Segment_Grow::GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId){
     }
 
     if(grow_tot > m_pParam->segGrow_proposal_size_thr){
-        if (OPEN_DEBUG)
-            cout<<propId<<" ::  total grow size is ... "<<grow_tot<<endl;
         m_out_maskI.ModifyMaskOnNonZeros(curMask, propId);
         propId += 1;
         

@@ -96,7 +96,7 @@ public: //Functions
    
     float GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
     float GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
-    SegFitRst &GetAllSegFitResultOnAny2Points(UINT32 &y0, UINT32 &x0, UINT32 &y1, UINT32 &x1); 
+    SegFitRst &GetAllSegFitResultOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1); 
     
     void GetDpSegmentById(DpSeg &dp_seg, UINT32 id);
     void GetDpSegmentByCoord(DpSeg &dp_seg, UINT32 py, UINT32 px, SegType s_type);
@@ -206,7 +206,7 @@ float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 
     
     return this->GetAllSegFitError(y0, x0, y1, x1);
 }
-SegFitRst &Segment_Stock::GetAllSegFitResultOnAny2Points(UINT32 &y0, UINT32 &x0, UINT32 &y1, UINT32 &x1){
+SegFitRst &Segment_Stock::GetAllSegFitResultOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
     
     // find closest st, end.
     if(y0 == y1){

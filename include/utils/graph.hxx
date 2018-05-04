@@ -27,9 +27,14 @@ public:
     
     // Functions
     BndryPix(UINT32 p1=0, UINT32 p2=0, UINT32 s1=0, UINT32 s2=0, float bdV=0){
-        pix1 = p1 < p2? p1 : p2;
-        pix2 = p1 < p2? p2 : p1; 
-        sup1=s1; sup2 =s2; 
+        if(p1 <= p2){
+            pix1 = p1;  pix2 = p2;
+            sup1 = s1;  sup2 = s2;
+        }
+        else{
+            pix1 = p2;  pix2 = p1;
+            sup1 = s2;  sup2 = s1;
+        }
         edgeval=bdV;
     }
 
@@ -40,6 +45,7 @@ public:
             sup2 = new_sup;
         else
             cout<<"Error in border: MergeSuperPixels. ("<<sup1<<", "<<sup2<<"), ("<<ori_sup<<", "<<new_sup<<")."<<endl;
+
     }
 
     UINT32 GetPixelInSuperPixel(UINT32 sup){
@@ -75,6 +81,11 @@ public:
             sup2 = new_sup;
         else
             cout<<"Error in Edge: MergeSuperPixels. ("<<sup1<<", "<<sup2<<"), ("<<ori_sup<<", "<<new_sup<<")."<<endl;
+        
+        // keep sup1 < sup2.
+        if(sup1 > sup2){
+            swap(sup1, sup2);
+        }
     }
 };
 
