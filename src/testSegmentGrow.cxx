@@ -63,11 +63,11 @@ void testSegmentGrow(std::string fpath, std::string fname){
     
     // visulizing.
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
-    // return; 
+    //return; 
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
-        string outPath   = "output/"+fname+std::string("_")+std::to_string(k)+".png";
-        string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
-        //string py_command = std::string("python pyShow.py");
+        string outPath   = "/media/yuanjial/LargeDrive/Results/python-instanceinference/Cython_output/"+fname+std::string("_")+std::to_string(k)+".png";
+        // string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
+        string py_command = std::string("python pyShow.py");
         cout<<py_command<<endl; 
         WriteToCSV(maskI, "./output/test.csv", k);
         system(py_command.c_str());
@@ -79,11 +79,14 @@ int main(){
     UINT32 cnt = 0;
     std::string fname;
     
+    std::string fdir;
+    cout<<endl<<"*** Please the folder name of input images."<<cnt<<endl;
+    cin >> fdir;
     cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
     cin >> fname;
     while(fname[0] == '2'){
         cout<<"Processing image: "<<fname<<endl;
-        std::string fpath = "./input_cls/"+fname+"/";
+        std::string fpath = "./" + fdir + "/" + fname + "/";
         testSegmentGrow(fpath, fname);
         cnt += 1; 
         cout<<endl<<"*** Please input fname (starting with 2): No."<<cnt<<endl;
