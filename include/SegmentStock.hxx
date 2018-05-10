@@ -5,9 +5,9 @@
 using namespace std;
 
 typedef struct SegmentFitResult{
-    float  fit_err;
-    float  w[2];
-    float  b[2];
+    double  fit_err;
+    double  w[2];
+    double  b[2];
     UINT32 ch[2];
     SegmentFitResult(){
         fit_err = 0;
@@ -18,8 +18,8 @@ typedef struct SegmentFitResult{
 }SegFitRst;
 
 typedef struct SegmentInformation{
-    float fit_err;
-    vector<float> sem_score;
+    double fit_err;
+    vector<double> sem_score;
 }SegInfo;
 
 typedef struct All_Segment{
@@ -91,11 +91,11 @@ public: //Functions
         return m_dp_segInfo;
     }
 
-    void AssignAllSegments(CDataTempl<float> &seg_info, vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch);
-    void AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
+    void AssignAllSegments(CDataTempl<double> &seg_info, vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch);
+    void AssignDpSegments(CDataTempl<double> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX);
    
-    float GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
-    float GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
+    double GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
+    double GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1);
     SegFitRst &GetAllSegFitResultOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1); 
     
     void GetDpSegmentById(DpSeg &dp_seg, UINT32 id);
@@ -105,7 +105,7 @@ public: //Functions
 };
 
 
-void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch){
+void Segment_Stock::AssignAllSegments(CDataTempl<double> &seg_info,  vector<UINT32> &all_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX, UINT32 *dist_ch){
     
     // assign segments to segment stock
     for(int k0=0; k0<all_idxs.size()-1; k0++){
@@ -148,7 +148,7 @@ void Segment_Stock::AssignAllSegments(CDataTempl<float> &seg_info,  vector<UINT3
     }
 }
 
-void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
+void Segment_Stock::AssignDpSegments(CDataTempl<double> &seg_info, auto &semScore, vector<UINT32> &dp_idxs, vector<UINT32> &ptY, vector<UINT32> &ptX){
     UINT32 seg_id = m_dp_seg.size()+1;
     
     // assign. 
@@ -188,12 +188,12 @@ void Segment_Stock::AssignDpSegments(CDataTempl<float> &seg_info, auto &semScore
 }
 
 
-float Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
+double Segment_Stock::GetAllSegFitError(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
     Aseg a_seg(y0, x0, y1, x1);
     return m_all_seg[a_seg].fit_err;
 }
 
-float Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
+double Segment_Stock::GetAllSegFitErrorOnAny2Points(UINT32 y0, UINT32 x0, UINT32 y1, UINT32 x1){
     // find closest st, end.
     if(y0 == y1){
         x0 = m_all_segIdx.GetData(y0, x0, e_seg_h*2); 

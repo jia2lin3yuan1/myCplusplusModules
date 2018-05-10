@@ -23,7 +23,7 @@ print ta.shape, np.unique(ta)
 ta_clr = cmap.convert_label2rgb(ta.astype(np.uint32))
 
 if('notsave' in args.outPath):
-    plt.imshow(ta_clr)
+    plt.imshow(ta)
     plt.show()
 else:
     mImage.imsave(args.outPath, ta_clr)

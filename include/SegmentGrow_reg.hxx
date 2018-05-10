@@ -12,9 +12,9 @@ typedef struct Grow_Segment{
     UINT32 len;
     UINT32 y0, x0;
     UINT32 y1, x1;
-    float  fit_err;
-    vector<float> sem_score;
-    float  sem_cost;
+    double  fit_err;
+    vector<double> sem_score;
+    double  sem_cost;
     bool   valid;
     Grow_Segment(){
         id = -1; len = 0;
@@ -41,7 +41,7 @@ typedef struct Grow_Segment{
         fit_err = dp_seg.seg_info.fit_err;
         sem_score = dp_seg.seg_info.sem_score;
 
-        float max_sem_score = 1e-5;
+        double max_sem_score = 1e-5;
         for(UINT32 k=0; k < sem_score.size(); k++){
             if(max_sem_score < sem_score[k])
                 max_sem_score = sem_score[k];
@@ -64,7 +64,7 @@ class Segment_Grow{
 protected:
     // variables exist in the whole life.
     bool   m_row_as_seed;  // each growing depends on row segments if true, otherwise col segs.
-    CDataTempl<float>        * m_pSemMat;
+    CDataTempl<double>        * m_pSemMat;
     const CDataTempl<UINT8>  * m_pSem_bg;
     Segment_Stock *            m_pSegStock; // segment informations 
    
@@ -76,7 +76,7 @@ protected:
     priority_queue<Seed_1D, vector<Seed_1D>, SeedCmp_1D> m_grow_seg_seeds;
     
     // output
-    CDataTempl<float>    m_out_debugI;
+    CDataTempl<double>    m_out_debugI;
     CDataTempl<UINT32>   m_out_maskI; // segment grow mask. 0-unprocessed data, 1-background. >1 - grown region label.
     
     // tmp variables for each shrink process in growing.
@@ -104,13 +104,13 @@ public:
         InitialSetGrowSegments();
     }
     CDataTempl<UINT32>& GetFinalResult();
-    CDataTempl<float>& GetDebugInformation();
+    CDataTempl<double>& GetDebugInformation();
     
     void ImagePartition();
     
 protected: 
     // operations on "grow segments"
-    float ComputeSeedCost(GrowSeg &gw_seg);
+    double ComputeSeedCost(GrowSeg &gw_seg);
     void InitialSetGrowSegments();
     void GetGrowSegmentById(GrowSeg &gw_seg, UINT32 id);
     void GetGrowSegmentByCoord(GrowSeg &gw_seg, UINT32 py, UINT32 px, SegType s_type);
@@ -122,7 +122,7 @@ protected:
     void GrowingFromASegment(UINT32 grow_seed_id, UINT32 &propId, bool is_row);
     void GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
     void GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, UINT32> > &bdPair, bool ext_hor);
-    float ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor, UINT32 &mask_end_A, UINT32 &mask_end_B);
+    double ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor, UINT32 &mask_end_A, UINT32 &mask_end_B);
 
     void ResetBorderHV();
 };
@@ -204,7 +204,7 @@ CDataTempl<UINT32>& Segment_Grow::GetFinalResult(){
 
     return m_out_maskI;
 }
-CDataTempl<float>& Segment_Grow::GetDebugInformation(){
+CDataTempl<double>& Segment_Grow::GetDebugInformation(){
     UINT32 num_Seg = m_grow_seg.size();
     for(UINT32 k =0; k < num_Seg; k++){
         GrowSeg gw_seg = m_grow_seg[k];
@@ -215,9 +215,9 @@ CDataTempl<float>& Segment_Grow::GetDebugInformation(){
 }
 
 // function for managing growing segments.
-float Segment_Grow::ComputeSeedCost(GrowSeg &gw_seg){
-    float sem_cost = m_pParam->segGrow_seed_sem_alpha * gw_seg.sem_cost;
-    float bic_cost = m_pParam->segGrow_seed_bic_alpha * (1/log(m_pParam->segGrow_seed_bic_scale*gw_seg.len + 2));
+double Segment_Grow::ComputeSeedCost(GrowSeg &gw_seg){
+    double sem_cost = m_pParam->segGrow_seed_sem_alpha * gw_seg.sem_cost;
+    double bic_cost = m_pParam->segGrow_seed_bic_alpha * (1/log(m_pParam->segGrow_seed_bic_scale*gw_seg.len + 2));
     
     return (gw_seg.fit_err + bic_cost + sem_cost);
 }
@@ -247,7 +247,7 @@ void Segment_Grow::InitialSetGrowSegments(){
             m_grow_segInfo.ResetBulkData(k, gw_seg.y0, 1, gw_seg.x0, gw_seg.x1-gw_seg.x0, e_seg_h, 1);
             // if the segment is valid, add into segment seed.
             if(m_row_as_seed==true && gw_seg.valid){
-                float cost = ComputeSeedCost(gw_seg);
+                double cost = ComputeSeedCost(gw_seg);
                 Seed_1D seg_seed(k, cost);
                 m_grow_seg_seeds.push(seg_seed);
             }
@@ -256,7 +256,7 @@ void Segment_Grow::InitialSetGrowSegments(){
             m_grow_segInfo.ResetBulkData(k, gw_seg.y0, gw_seg.y1-gw_seg.y0, gw_seg.x0, 1, e_seg_v, 1);
             // if the segment is valid, add into segment seed.
             if(m_row_as_seed==false && gw_seg.valid){
-                float cost = ComputeSeedCost(gw_seg);
+                double cost = ComputeSeedCost(gw_seg);
                 Seed_1D seg_seed(k, cost);
                 m_grow_seg_seeds.push(seg_seed);
             }
@@ -294,7 +294,7 @@ void Segment_Grow::AddGrowSegment(GrowSeg &ori_seg, UINT32 len, UINT32 y0, UINT3
         m_grow_segInfo.ResetBulkData(seg_id, y0, 1, x0, x1-x0, e_seg_h, 1);
         // add of segment seed.
         if(m_row_as_seed){
-            float cost = ComputeSeedCost(gw_seg);
+            double cost = ComputeSeedCost(gw_seg);
             Seed_1D seg_seed(seg_id, cost);
             m_grow_seg_seeds.push(seg_seed);
         }
@@ -303,7 +303,7 @@ void Segment_Grow::AddGrowSegment(GrowSeg &ori_seg, UINT32 len, UINT32 y0, UINT3
         m_grow_segInfo.ResetBulkData(seg_id, y0, y1-y0, x0, 1, e_seg_v, 1);
         // add of segment seed.
         if(!m_row_as_seed){
-            float cost = ComputeSeedCost(gw_seg);
+            double cost = ComputeSeedCost(gw_seg);
             Seed_1D seg_seed(seg_id, cost);
             m_grow_seg_seeds.push(seg_seed);
         }
@@ -319,7 +319,7 @@ void Segment_Grow::ResetBorderHV(){
 }
 
 // compute the cost of keep (py, px)
-float Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor, UINT32 &mask_end_A, UINT32 &mask_end_B){
+double Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT32 px, bool ext_hor, UINT32 &mask_end_A, UINT32 &mask_end_B){
     auto relocate_start_end = [&](UINT32 &seg_st, UINT32 &seg_end, UINT32 &mask_st, UINT32 &mask_end, bool is_row){
         GrowSeg gw_seg;
         if(is_row){
@@ -342,15 +342,15 @@ float Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT
         seg_st = mask_end;
     };
 
-    auto ComputeBICcost = [&](UINT32 x0, UINT32 x1, float bias){
+    auto ComputeBICcost = [&](UINT32 x0, UINT32 x1, double bias){
         UINT32 len = x1>x0? x1-x0 : x0-x1;
-        float cost = log(len+bias+m_pParam->segGrow_shrk_bic_addi_len);
+        double cost = log(len+bias+m_pParam->segGrow_shrk_bic_addi_len);
         return cost;
     };
     auto ComputeFitCost = [&](UINT32 py, UINT32 px){
         UINT32 st, end;
         DpSeg dp_seg;
-        float fit_cost;
+        double fit_cost;
 
         // H direction
         UINT32 bd_0 = m_borderH[py].first;
@@ -405,13 +405,13 @@ float Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT
     // compute BIC cost and FIT cost for existance of the point. 
     // A is the extending direction. B is the orthogonal direction.
     UINT32 len_A = seg_end_A > seg_st_A? seg_end_A-seg_st_A : seg_st_A-seg_end_A;
-    float bic_A = ComputeBICcost(mask_st_A, seg_st_A, 1);
+    double bic_A = ComputeBICcost(mask_st_A, seg_st_A, 1);
     bic_A += ComputeBICcost(mask_st_A, seg_end_A, 1+0.1*len_A);
     bic_A -= ComputeBICcost(mask_st_A, seg_st_A, 0);
     bic_A -= ComputeBICcost(mask_st_A, seg_end_A, 2+0.1*len_A);
 
     UINT32 len_B = seg_end_B > seg_st_B? seg_end_B-seg_st_B : seg_st_B-seg_end_B;
-    float bic_B = ComputeBICcost(mask_st_B, seg_st_B, 1);
+    double bic_B = ComputeBICcost(mask_st_B, seg_st_B, 1);
     bic_B += ComputeBICcost(mask_st_B, seg_end_B, 1+0.2*len_B);
     bic_B -= ComputeBICcost(mask_st_B, seg_st_B, 0);
     bic_B -= ComputeBICcost(mask_st_B, seg_end_B, 2+0.2*len_B);
@@ -419,8 +419,8 @@ float Segment_Grow::ComputeOneNodeCost(CDataTempl<UINT32> &mask, UINT32 py, UINT
         bic_B = 1e3;
 
     // Compute Fit cost of existance of the point.
-    float fit_A = ComputeFitCost(py, px);
-    float exist_cost = fit_A + m_pParam->segGrow_shrk_bic_alpha*(bic_A+bic_B);
+    double fit_A = ComputeFitCost(py, px);
+    double exist_cost = fit_A + m_pParam->segGrow_shrk_bic_alpha*(bic_A+bic_B);
     
     m_out_debugI.SetData(exist_cost, py, px, 0);
     m_out_debugI.SetData(fit_A, py, px, 1);
@@ -438,7 +438,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
             return;
         else if (mask.GetData(py, px) == 2){
             UINT32 mask_end_ext, mask_end_orth;
-            float rm_cost = ComputeOneNodeCost(mask, py, px, ext_hor, mask_end_ext, mask_end_orth);
+            double rm_cost = ComputeOneNodeCost(mask, py, px, ext_hor, mask_end_ext, mask_end_orth);
             Seed node(py, px, rm_cost, mask_end_ext, mask_end_orth);
             cost_heap.push(node);
             Mkey_2D node2(py, px);
@@ -492,7 +492,7 @@ void Segment_Grow::GrowingShrink(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
 
     // Main Process :: starting from corner points on the boundary.
     priority_queue<Seed, vector<Seed>, SeedCmp> pix_seeds;
-    map<Mkey_2D, float, MKey2DCmp> seeds_map;
+    map<Mkey_2D, double, MKey2DCmp> seeds_map;
     for(UINT32 k=0; k<bdPair.size(); k++){
         ComputeCost(bdPair[k].first, bdPair[k].second, pix_seeds, seeds_map);
     }
@@ -532,7 +532,7 @@ void Segment_Grow::GrowingExtend(CDataTempl<UINT32> &mask, vector<pair<UINT32, U
     // starting process.
     vector<pair<UINT32, UINT32> > pre_bds;
     mask.FindBoundaryOnMask(pre_bds, 1);
-    vector<float> exp_sem_score(m_num_sem, 0);
+    vector<double> exp_sem_score(m_num_sem, 0);
     m_pSemMat->MeanZ(mask, UINT32(1), exp_sem_score);
     
     // extend along boundary pixels.

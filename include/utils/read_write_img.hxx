@@ -19,7 +19,7 @@ void ReadFromCSV(CDataTempl<DT> &img, std::string fpath,int imgCh =0)
     UINT32 imgHt = img.GetYDim();
     UINT32 imgWd = img.GetXDim();
 
-    float rdVal;
+    double rdVal;
     std::string line;
     std::ifstream file(fpath);
     for(int row = 0; row < imgHt; ++row)

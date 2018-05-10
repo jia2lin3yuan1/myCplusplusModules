@@ -23,10 +23,10 @@ public:
     UINT32 sup2;
     
     // edge value between them.
-    float edgeval;
+    double edgeval;
     
     // Functions
-    BndryPix(UINT32 p1=0, UINT32 p2=0, UINT32 s1=0, UINT32 s2=0, float bdV=0){
+    BndryPix(UINT32 p1=0, UINT32 p2=0, UINT32 s1=0, UINT32 s2=0, double bdV=0){
         if(p1 <= p2){
             pix1 = p1;  pix2 = p2;
             sup1 = s1;  sup2 = s2;
@@ -64,11 +64,11 @@ public:
     UINT32   sup2;
     
     // edge value
-    float  edgeval;
+    double  edgeval;
     vector<UINT32> bd_pixs;
     
     // Functions
-    Edge(UINT32 s1=0, UINT32 s2=0, float val=0){
+    Edge(UINT32 s1=0, UINT32 s2=0, double val=0){
         sup1 = s1 < s2? s1 : s2; 
         sup2 = s1 < s2? s2 : s1; 
         edgeval=val;
@@ -340,7 +340,7 @@ CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         if(it->first == 0)
             continue;
-        m_outLabelI.ResetDataFromVector((it->second).pixs, label);
+        m_outLabelI.ResetDataFromVector((it->second).pixs, it->first);
         label += 1;
     }
 

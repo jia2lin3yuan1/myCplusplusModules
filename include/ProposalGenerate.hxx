@@ -6,7 +6,7 @@
 #include "TriMapGenerate.hxx"
 
 template<typename OUT_TYPE>
-void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<UINT32> &instI, CDataTempl<OUT_TYPE> &maskI){
+void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<double> &semM, CDataTempl<UINT32> &instI, CDataTempl<OUT_TYPE> &maskI){
     
     UINT32 imgHt = distM.GetYDim();
     UINT32 imgWd = distM.GetXDim();
@@ -48,7 +48,7 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     
-    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam, &instI);
+    SuperPixelMerger supixMerger(&semM, &distM, &segStock, &glbParam, &instI);
     supixMerger.AssignInputLabel(&segLabelI);
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
@@ -56,9 +56,8 @@ void ProposalGenerate(CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTe
 
 #ifdef DEBUG_SEGMENT_MERGE
     if (false){
-        CDataTempl<float> debugI(imgHt, imgWd);
+        CDataTempl<double> debugI(imgHt, imgWd);
         supixMerger.GetDebugImage(debugI);
-        //maskI = debugI;
     }
     else
         maskI = supixMerger.AssignOutputLabel();

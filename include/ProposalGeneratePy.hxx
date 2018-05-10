@@ -12,7 +12,7 @@
  *           distVec: distance Matrix, size = distCh*imgHt*imgWd. arrange as: first wd, then ht, then distCh.
  *            semVec: semantic Matrix, size = semCh *imgHt*imgWd. arrange as: first wd, then ht, then semCH.
  */
-std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semVec){
+std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* semVec){
     // load data to CDataTemplate from vector.
     UINT32 imgHt  = imgInfo[0];
     UINT32 imgWd  = imgInfo[1];
@@ -21,10 +21,10 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
 
     std::cout<<"Image info is: ht/wd = "<< imgHt << " / " << imgWd << ", dist/sem ch = "<<distCh<<" / "<<semCh<<std::endl;
 
-    CDataTempl<float> distM(imgHt, imgWd, distCh);
+    CDataTempl<double> distM(imgHt, imgWd, distCh);
     distM.AssignFromVector(distVec);
     
-    CDataTempl<float> semM(imgHt, imgWd, semCh);
+    CDataTempl<double> semM(imgHt, imgWd, semCh);
     semM.AssignFromVector(semVec);
    
     CDataTempl<UINT32> semI(imgHt, imgWd);
@@ -38,7 +38,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     UINT32 cnt = 0;
 
 #ifdef DEBUG_FINAL_TRIMAP
-    CDataTempl<float> out_labelI;
+    CDataTempl<double> out_labelI;
 #else
     CDataTempl<UINT32> out_labelI;
 #endif
@@ -71,7 +71,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     // ----------------------
     //merge based on generated super pixels.
     std::cout<<"step 3: Merge super pixels. "<<std::endl; 
-    SuperPixelMerger supixMerger(&semM, &segStock, &glbParam, &semI);
+    SuperPixelMerger supixMerger(&semM, &distM, &segStock, &glbParam, &semI);
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     supixMerger.AssignInputLabel(&segLabelI);
@@ -79,7 +79,7 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     supixMerger.ComputeGraphWeights();
 
     /*
-    CDataTempl<float> debugI(imgHt, imgWd);
+    CDataTempl<double> debugI(imgHt, imgWd);
     supixMerger.GetDebugImage(debugI);
     maskI = debugI;
     */
@@ -103,11 +103,11 @@ std::vector<float> ProposalGenerate(UINT32* imgInfo, float* distVec, float* semV
     // ------------------------------------
     // CDataTemplate to vector.
     UINT32 outCh = out_labelI.GetZDim();
-    std::vector<float> out_vec(imgHt*imgWd*outCh, 0);
+    std::vector<double> out_vec(imgHt*imgWd*outCh, 0);
     for(UINT32 z=0; z < outCh; z++){
         for(UINT32 y=0; y < imgHt; y++){
             for(UINT32 x=0; x < imgWd; x++){
-               out_vec[cnt] = float(out_labelI.GetDataByIdx(cnt));
+               out_vec[cnt] = double(out_labelI.GetDataByIdx(cnt));
                cnt += 1;
             }
         }

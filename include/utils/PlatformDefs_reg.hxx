@@ -47,9 +47,9 @@ typedef bool           BOOL;
 //
 typedef struct SeedNode_OneKey{
     UINT32 id0;
-    float cost;
+    double cost;
     
-    SeedNode_OneKey(UINT32 a=0, float c=0){id0=a; cost=c;}
+    SeedNode_OneKey(UINT32 a=0, double c=0){id0=a; cost=c;}
 }Seed_1D;
 
 struct SeedCmp_1D{ // Increasing order
@@ -67,11 +67,11 @@ struct SeedCmp_1D_Dec{ // Decreasing order.
 typedef struct SeedNode{
     UINT32 id0;
     UINT32 id1;
-    float cost;
+    double cost;
 
     UINT32 tmp0;
     UINT32 tmp1;
-    SeedNode(UINT32 a=0, UINT32 b=0, float c=0, UINT32 d=0, UINT32 e=0){id0=a; id1=b; cost=c; tmp0=d; tmp1=e;}
+    SeedNode(UINT32 a=0, UINT32 b=0, double c=0, UINT32 d=0, UINT32 e=0){id0=a; id1=b; cost=c; tmp0=d; tmp1=e;}
 }Seed;
 struct SeedCmp{
     bool operator()(const Seed &lhs, const Seed &rhs){
@@ -99,24 +99,24 @@ struct MKey2DCmp{
 typedef struct Global_Parameters{
 
     // segment fitting parameters.
-    float segFit_dp_semdiff_thr;
-    float segFit_dp_bic_alpha;
-    float segFit_dp_err_thr;
-    float segFit_dp_inf_err;
+    double segFit_dp_semdiff_thr;
+    double segFit_dp_bic_alpha;
+    double segFit_dp_err_thr;
+    double segFit_dp_inf_err;
 
     // segment growing paramters.
-    float  segGrow_seed_sem_alpha;
-    float  segGrow_seed_bic_alpha;
-    float  segGrow_seed_bic_scale;
+    double  segGrow_seed_sem_alpha;
+    double  segGrow_seed_bic_alpha;
+    double  segGrow_seed_bic_scale;
     UINT32 segGrow_seed_size_thr;
     
-    float  segGrow_extd_semdiff_thr;
+    double  segGrow_extd_semdiff_thr;
 
-    float  segGrow_shrk_bic_alpha;
+    double  segGrow_shrk_bic_alpha;
     UINT32 segGrow_shrk_bic_addi_len;
-    float  segGrow_shrk_fit_cost_thr;
-    float  segGrow_shrk_fit_cost_penalty;
-    float  segGrow_shrk_cost_thr;
+    double  segGrow_shrk_fit_cost_thr;
+    double  segGrow_shrk_fit_cost_penalty;
+    double  segGrow_shrk_cost_thr;
 
     UINT32 segGrow_proposal_size_thr;
     bool   segGrow_rm_label0;
@@ -124,31 +124,31 @@ typedef struct Global_Parameters{
     // segment merge.
     UINT32 merge_supix_bic_addi_len;
     
-    float  merge_edge_conn_alpha;
-    float  merge_edge_geo_alpha;
-    float  merge_edge_bic_alpha;
-    float  merge_edge_semdiff_thr;
-    float  merge_edge_semdiff_pnty;
+    double  merge_edge_conn_alpha;
+    double  merge_edge_geo_alpha;
+    double  merge_edge_bic_alpha;
+    double  merge_edge_semdiff_thr;
+    double  merge_edge_semdiff_pnty;
 
     bool   merge_gen_svm_train_en;
     bool   merge_svm_en;
     double merge_svm_dec_thr;
-    float  merge_merger_thr;
+    double  merge_merger_thr;
 
     // tri-map.
     UINT32 tri_supix_bic_addi_len;
-    float  tri_supix_bic_scale;
+    double  tri_supix_bic_scale;
 
-    float  tri_seed_sem_alpha;
-    float  tri_seed_fit_alpha;
-    float  tri_seed_geo_alpha;
+    double  tri_seed_sem_alpha;
+    double  tri_seed_fit_alpha;
+    double  tri_seed_geo_alpha;
    
-    float  tri_edge_fit_alpha;
-    float  tri_edge_semdiff_thr;
+    double  tri_edge_fit_alpha;
+    double  tri_edge_semdiff_thr;
 
-    float  tri_notseed_prob_thr;
-    float  tri_cluster_supix0_prob;
-    float  tri_cluster_prob_thr;
+    double  tri_notseed_prob_thr;
+    double  tri_cluster_supix0_prob;
+    double  tri_cluster_prob_thr;
 
 
     // constructor to assign value
@@ -214,11 +214,11 @@ typedef struct Global_Parameters{
 // Global Functions.
 #if 1
 #define HIST_W_NUM_BIN 12
-float glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.5e-2,   -1e-2,   -5e-3,
+double glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.5e-2,   -1e-2,   -5e-3,
                               0,    5e-3,    1e-2,  1.5e-2,    2e-2,  5e-2};
 #else
 #define HIST_W_NUM_BIN 24
-float glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.8e-2, -1.6e-2, -1.4e-2,
+double glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.8e-2, -1.6e-2, -1.4e-2,
                         -1.2e-2,   -1e-2,   -83-3,   -6e-3,   -4e-3,
                           -2e-3,       0,    2e-3,    4e-3,    6e-3,    
                            8e-3,    1e-2,  1.2e-2,  1.4e-2,  1.6e-2,
@@ -235,17 +235,17 @@ UINT32 vote2histogram_w(T2 val){
 
 
 template<typename T2>
-float _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){
-    float diff = 0; 
+double _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){
+    double diff = 0; 
     for(UINT32 k=0; k<obsV.size(); k++){
-        diff += float(pow(obsV[k]-expV[k], 2))/float(expV[k]+obsV[k]);
+        diff += double(pow(obsV[k]-expV[k], 2))/double(expV[k]+obsV[k]);
     }
 
     return diff;
 }
 
 template<typename T>
-float _NegativeLog(T prob){
+double _NegativeLog(T prob){
     return -log(prob/(1-prob+1e-5));
 }
 
