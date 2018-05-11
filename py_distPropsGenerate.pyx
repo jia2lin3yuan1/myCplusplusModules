@@ -9,17 +9,26 @@ import numpy as np
 np.import_array()
 
 cdef extern from "ProposalGeneratePy.hxx":
-    cdef vector[float] ProposalGenerate(unsigned int *imgInfo, float *distVec, float *semVec);
+    cdef cppclass OutData:
+        OutData() except +
+
+        vector[double] labels
+        vector[double] merge_flag
+            
+    cdef void ProposalGenerate(unsigned int *imgInfo, double *distVec, double *semVec, unsigned int *instVec, OutData *mydata);
             
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def py_DistPropsGenerate(np.ndarray[unsigned int, ndim=1, mode='c'] imgInfo not None, 
-                         np.ndarray[float, ndim=1, mode='c'] distArr not None, 
-                         np.ndarray[float, ndim=1, mode='c'] semArr not None): 
+                         np.ndarray[double, ndim=1, mode='c'] distArr not None, 
+                         np.ndarray[double, ndim=1, mode='c'] semArr not None, 
+                         np.ndarray[unsigned int, ndim=1, mode='c'] instArr not None): 
     print '**calling C function in cython.'
-    cdef vector[float] label_arr;
-    label_arr = ProposalGenerate(&imgInfo[0], &distArr[0], &semArr[0])
+    cdef OutData *mydata = new OutData()
+    ProposalGenerate(&imgInfo[0], &distArr[0], &semArr[0], &instArr[0], mydata)
+    
+    print '** finished of C.'
 
-    return label_arr
+    return mydata.labels, mydata.merge_flag
 

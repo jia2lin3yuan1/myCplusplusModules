@@ -17,7 +17,7 @@
 #include <math.h>
 
 /** Turn on / Turn off some functions. **/
-// #define DEBUG_SEGMENT_STOCK
+#define DEBUG_SEGMENT_STOCK
 
 // #define DEBUG_SEGMENT_GROW_STEP
 // #define DEBUG_SEGMENT_GROW
@@ -209,7 +209,7 @@ typedef struct Global_Parameters{
         merge_edge_semcost_thr    = 4e-1;
         merge_edge_semcost_alpha  = 1e-1;
 
-        merge_gen_svm_train_en   = 0;
+        merge_gen_svm_train_en   = 1;
         merge_inst_svm_en        = 0;
         merge_merge_svm_en       = 0;
         merge_merge_svm_dec_thr  = 0.3;

@@ -5,6 +5,15 @@
 #include "MergerSuperPixel.hxx"
 #include "TriMapGenerate.hxx"
 
+class OutData{
+public:
+    vector<double> labels;
+    vector<double> merge_flag;
+    OutData(){
+        labels.resize(0, 0);
+        merge_flag.resize(0, 0);
+    }
+};
 
 /*
  * Interface to be called by Cython.
@@ -12,14 +21,14 @@
  *           distVec: distance Matrix, size = distCh*imgHt*imgWd. arrange as: first wd, then ht, then distCh.
  *            semVec: semantic Matrix, size = semCh *imgHt*imgWd. arrange as: first wd, then ht, then semCH.
  */
-std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* semVec){
+void ProposalGenerate(UINT32* imgInfo, double* distVec, double* semVec, UINT32 *instVec, OutData *outdata){
     // load data to CDataTemplate from vector.
     UINT32 imgHt  = imgInfo[0];
     UINT32 imgWd  = imgInfo[1];
     UINT32 distCh = imgInfo[2];
     UINT32 semCh  = imgInfo[3];
 
-    std::cout<<"Image info is: ht/wd = "<< imgHt << " / " << imgWd << ", dist/sem ch = "<<distCh<<" / "<<semCh<<std::endl;
+    cout<<"Image info is: ht/wd = "<< imgHt << " / " << imgWd << ", dist/sem ch = "<<distCh<<" / "<<semCh<<endl;
 
     CDataTempl<double> distM(imgHt, imgWd, distCh);
     distM.AssignFromVector(distVec);
@@ -32,7 +41,11 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
 
     CDataTempl<UINT8> bgSem(imgHt, imgWd);
     semI.Mask(bgSem, 0);
+
+    CDataTempl<UINT32> instI(imgHt, imgWd);
+    instI.AssignFromVector(instVec);
     
+    vector<double> merge_flag;
     
     // prepare output variable
     UINT32 cnt = 0;
@@ -48,7 +61,7 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
     // ----------------------
     // estimate segment from distance map.
     
-    std::cout<<"step 1: fitting segment "<<std::endl; 
+    cout<<"step 1: fitting segment "<<endl; 
     Segment_Stock segStock(imgHt, imgWd);
     Segment_Fit segFit(&glbParam, &bgSem, &semI, &semM, &distM); 
     segFit.FittingFeasibleSolution(e_fit_hor, &segStock);
@@ -60,7 +73,7 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
 #else
     // ----------------------
     // generate super pixels based on segment.
-    std::cout<<"step 2: growing based on segment "<<std::endl; 
+    cout<<"step 2: growing based on segment "<<endl; 
     Segment_Grow segGrow(true, &bgSem, &semM, &segStock, &glbParam);
     segGrow.ImagePartition();
     
@@ -70,29 +83,26 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
 
     // ----------------------
     //merge based on generated super pixels.
-    std::cout<<"step 3: Merge super pixels. "<<std::endl; 
-    SuperPixelMerger supixMerger(&semM, &distM, &segStock, &glbParam, &semI);
+    cout<<"step 3: Merge super pixels. "<<endl; 
+    SuperPixelMerger supixMerger(&semM, &distM, &segStock, &glbParam, &instI);
     CDataTempl<UINT32> segLabelI;
     segLabelI = segGrow.GetFinalResult();
     supixMerger.AssignInputLabel(&segLabelI);
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
-
-    /*
-    CDataTempl<double> debugI(imgHt, imgWd);
-    supixMerger.GetDebugImage(debugI);
-    maskI = debugI;
-    */
     supixMerger.Merger();
+    
+    supixMerger.GetMergeInfo(merge_flag);
+    outdata->merge_flag = merge_flag;
 
     
 #ifdef DEBUG_FINAL_TRIMAP
     // ----------------------------
     // generate trimap for different instance proposals.
-    std::cout<<"step 4: Generate TriMap. "<<std::endl; 
+    cout<<"step 4: Generate TriMap. "<<endl; 
     Trimap_Generate trimapGen(&supixMerger, &segStock, &semM, &distM, &glbParam);
     trimapGen.GreedyGenerateTriMap();
-    std::cout<<"Growing done."<<std::endl;
+    cout<<"Growing done."<<endl;
     trimapGen.GetOutputData(out_labelI);
 #else
     out_labelI = supixMerger.AssignOutputLabel();
@@ -103,7 +113,7 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
     // ------------------------------------
     // CDataTemplate to vector.
     UINT32 outCh = out_labelI.GetZDim();
-    std::vector<double> out_vec(imgHt*imgWd*outCh, 0);
+    vector<double> out_vec(imgHt*imgWd*outCh, 0);
     for(UINT32 z=0; z < outCh; z++){
         for(UINT32 y=0; y < imgHt; y++){
             for(UINT32 x=0; x < imgWd; x++){
@@ -113,7 +123,8 @@ std::vector<double> ProposalGenerate(UINT32* imgInfo, double* distVec, double* s
         }
     }
 
-    return out_vec;
+    outdata->labels = out_vec;
+    cout<<"Finished.  "<<endl; 
 }
 
 

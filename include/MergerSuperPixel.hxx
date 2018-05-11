@@ -183,11 +183,11 @@ public:
     void InitialForSVM();
     SuperPixelMerger(CDataTempl<double> *pSemMat, CDataTempl<double> *pDistMat, Segment_Stock *pSegStock, 
                         const GlbParam *pParam, CDataTempl<UINT32> *pInstI=NULL):Graph(pSemMat->GetYDim(), pSemMat->GetXDim()){
-        m_pSemMat    = pSemMat;
-        m_pDistMat   = pDistMat;
-        m_num_sem    = m_pSemMat->GetZDim();
-        m_pSegStock  = pSegStock;
-        m_pParam     = pParam;
+        m_pSemMat            = pSemMat;
+        m_pDistMat           = pDistMat;
+        m_num_sem            = m_pSemMat->GetZDim();
+        m_pSegStock          = pSegStock;
+        m_pParam             = pParam;
         
         m_pInstanceI         = pInstI;
         m_num_instances      = 0; 
@@ -263,9 +263,10 @@ public:
     // Merge operations
     void Merger();
 
-    // debug information
+    // Output information
     void GetDebugImage(CDataTempl<double> &debugI, UINT32 mode=0);
     void PrintOutInformation();
+    void GetMergeInfo(vector<double> &mergeInfo);
 
     // svm classifier
     void   ReadClassifierFeatureNorm(string fname, UINT32 type);
@@ -350,6 +351,37 @@ void SuperPixelMerger::PrintOutInformation(){
         cout<<"             sup2: "<<m_supixs[(it->second).sup2].sum_bic_cost<<", "<<m_supixs[(it->second).sup2].sum_fit_cost<<", size: "<<m_supixs[(it->second).sup2].pixs.size()<<endl;
     }
     cout<<endl;
+}
+
+void SuperPixelMerger::GetMergeInfo(vector<double> &mergeInfo){
+    // each super pixel
+    for(auto it:m_supixs){
+        if(it.first <= 1)
+            continue;
+        mergeInfo.push_back(0);
+        mergeInfo.push_back(it.first);
+        mergeInfo.push_back(it.second.inst_iou);
+    }
+
+    // merge status. 
+    for(auto it:m_supixs){
+        if(it.first<=1)
+            continue;
+        for(auto it2:it.second.adjacents){
+            if(it2.first<=1)
+                continue;
+
+            vector<UINT32> mrg_hist(m_num_instances, 0);
+            for(int k = 0; k < m_num_instances; k ++){
+                mrg_hist[k] = it.second.hist_inst[k] + m_supixs[it2.first].hist_inst[k];
+            }
+            
+            double mrg_iou = ComputeInstanceIoU(mrg_hist, it.second.pixs.size()+m_supixs[it2.first].pixs.size());
+            mergeInfo.push_back(it.first);
+            mergeInfo.push_back(it2.first);
+            mergeInfo.push_back(mrg_iou);
+        }
+    }
 }
 
 void SuperPixelMerger::GetDebugImage(CDataTempl<double> &debugI, UINT32 mode){
@@ -718,12 +750,15 @@ void SuperPixelMerger::UpdateSuperPixel(UINT32 sup, UINT32 edge){
 }
 
 void SuperPixelMerger::ComputeGraphWeights(){
-    
+   
+    cout<<"compute super pixels: number= "<<m_supixs.size()<<endl;
     // compute the cost of the super pixel.
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         ComputeSuperPixelCost(it->first);
+        cout<<"\t"<<it->first<<endl;
     }
     
+    cout<<"compute edges"<<endl<<endl;
     // compute edge's weight.
     for(auto it=m_edges.begin(); it!= m_edges.end(); it++){
         ComputeEdgeWeights(it->first);
@@ -810,10 +845,6 @@ void SuperPixelMerger::ComputeEdgeWeights(UINT32 edge){
                 UINT32 mrg_py0, mrg_py1;
                 mrg_py0 = ref_bd_sup0.border.border_seg[pt0_key].y_v; 
                 mrg_py1 = ref_bd_sup1.border.border_seg[pt1_key].y_v;
-                if(mrg_py0 > mrg_py1){
-                    cout<<"sup0 "<<ref_edge.sup1<<", sup1 "<<ref_edge.sup2<<". (mrg_py0, py0, py1, mrg_py1)= "<<mrg_py0<<", "<<py0<<", "<<py1<<", "<<mrg_py1<<endl;
-                    int a = 0;
-                }
                 assert(mrg_py0 <= mrg_py1);
 
                 // get segment fitting info for the merged segment.
@@ -1029,9 +1060,6 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
                 px = (bd_pix.pix2) % m_wd;
             }
             
-            if(sup==2 && k==56)
-                cout<<"    nei:: "<<it.first<<", edge: "<<it.second<<",   bdPix: "<<k<<"-- ("<<bd_pix.pix1<<", "<<bd_pix.pix2<<") "<<endl;
-           
             if(bd_pix.pix2 - bd_pix.pix1 == 1){
                 UINT32 is_h_line = 1;
                 Mkey_3D pt_key(py, px, is_h_line);
@@ -1041,14 +1069,17 @@ void SuperPixelMerger::ComputeSuperPixelCost(UINT32 sup){
                 if(px > 0 && m_pInLabelI->GetData(py, px-1) == sup){
                     ref_border.border_seg[pt_key].x_h = FindOppositeX(py, px, -1);
                     segFit_h = m_pSegStock->GetAllSegFitResultOnAny2Points(py, ref_border.border_seg[pt_key].x_h, py, px); 
+                    assert(ref_border.border_seg[pt_key].x_h <= px);
                 }
                 else if(px < m_wd-1 && m_pInLabelI->GetData(py, px+1) == sup){
                     ref_border.border_seg[pt_key].x_h = FindOppositeX(py, px, 1);
                     segFit_h = m_pSegStock->GetAllSegFitResultOnAny2Points(py, px, py, ref_border.border_seg[pt_key].x_h); 
+                    assert(ref_border.border_seg[pt_key].x_h >= px);
                 }
                 else{
                     ref_border.border_seg[pt_key].x_h = px;
                     segFit_h = m_pSegStock->GetAllSegFitResultOnAny2Points(py, px, py, ref_border.border_seg[pt_key].x_h); 
+                    assert(ref_border.border_seg[pt_key].x_h == px);
                 }
             
                 // get segment info on each line.
@@ -1130,6 +1161,8 @@ double SuperPixelMerger::ComputeInstanceIoU(vector<UINT32> &hist_inst, UINT32 de
         cur_iou  = static_cast<double>(hist_inst[k])/static_cast<double>(det_size + m_map_inst_cnt[k]-hist_inst[k]);
         inst_iou = cur_iou > inst_iou? cur_iou : inst_iou;
     }
+    
+    return inst_iou;
 }
 /*
  * statistical of distance distribution inside the super-pixel in each channel.

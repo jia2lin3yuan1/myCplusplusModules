@@ -336,12 +336,12 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
 template<typename NODE, typename EDGE, typename BORDER>
 CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     m_outLabelI.Reset(0);
-    UINT32 label = 0;
+    // UINT32 label = 0;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         if(it->first == 0)
             continue;
         m_outLabelI.ResetDataFromVector((it->second).pixs, it->first);
-        label += 1;
+        // label += 1;
     }
 
     return m_outLabelI;

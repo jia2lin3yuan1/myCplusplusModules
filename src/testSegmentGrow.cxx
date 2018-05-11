@@ -8,7 +8,7 @@
  */
 
 
-void PrepareData(std::string fpath, CDataTempl<float> &distM, CDataTempl<float> &semM, CDataTempl<UINT32> &instI){
+void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<double> &semM, CDataTempl<UINT32> &instI){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
     ReadFromCSV(distM, fpath+"dist1.csv", 1);
     ReadFromCSV(distM, fpath+"dist2.csv", 2);
@@ -50,12 +50,12 @@ void testSegmentGrow(std::string fpath, std::string fname){
     UINT32 imgHt = shape.GetData(0);
     UINT32 imgWd = shape.GetData(1);
     
-    CDataTempl<float> distM(imgHt, imgWd, 4);
-    CDataTempl<float> semM(imgHt, imgWd, 21);
+    CDataTempl<double> distM(imgHt, imgWd, 4);
+    CDataTempl<double> semM(imgHt, imgWd, 21);
     CDataTempl<UINT32> instI(imgHt, imgWd);
     PrepareData(fpath, distM, semM, instI);
 #ifdef DEBUG_FINAL_TRIMAP
-    CDataTempl<float> maskI;
+    CDataTempl<double> maskI;
 #else
     CDataTempl<UINT32> maskI;
 #endif
@@ -66,8 +66,8 @@ void testSegmentGrow(std::string fpath, std::string fname){
     //return; 
     for(UINT32 k=0; k < maskI.GetZDim(); k++){
         string outPath   = "/media/yuanjial/LargeDrive/Results/python-instanceinference/Cython_output/"+fname+std::string("_")+std::to_string(k)+".png";
-        // string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
-        string py_command = std::string("python pyShow.py");
+        string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
+        // string py_command = std::string("python pyShow.py");
         cout<<py_command<<endl; 
         WriteToCSV(maskI, "./output/test.csv", k);
         system(py_command.c_str());

@@ -53,6 +53,13 @@ void ProposalGenerate(CDataTempl<double> &distM, CDataTempl<double> &semM, CData
     supixMerger.CreateGraphFromLabelI();
     supixMerger.ComputeGraphWeights();
     supixMerger.Merger();
+    
+    vector<double> merge_flag;
+    supixMerger.GetMergeInfo(merge_flag);
+    cout<<"Merge Falg: size: "<< merge_flag.size()<<endl;
+    for(int k =0; k < merge_flag.size(); k += 3){
+        cout<<merge_flag[k]<<", "<<merge_flag[k+1]<<", "<<merge_flag[k+2]<<endl;
+    }
 
 #ifdef DEBUG_SEGMENT_MERGE
     if (false){
