@@ -368,7 +368,7 @@ void SuperPixelMerger::GetMergeInfo(vector<double> &mergeInfo){
         if(it.first<=1)
             continue;
         for(auto it2:it.second.adjacents){
-            if(it2.first<=1)
+            if(it2.first<=1 || it2.first < it.first)
                 continue;
 
             vector<UINT32> mrg_hist(m_num_instances, 0);

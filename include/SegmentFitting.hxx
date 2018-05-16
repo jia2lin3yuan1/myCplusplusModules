@@ -119,21 +119,21 @@ void Segment_Fit::ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &
     // the first channel.
     out_lutY0.Init(num_keyPt, num_keyPt, 3);
     for(UINT32 j = 0; j < num_keyPt-1; j ++){
-        double distV   = m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[0]);
+        double distV   = 0;
         double x       = 0;
         double acc_y   = distV;
-        double acc_xy  = 0;
+        double acc_xy  = distV*m_lutX.GetData(x, 5);
         double acc_y_2 = pow(distV, 2);
         
         UINT32 k = j+1;
-        for(UINT32 i = key_idxs[j]+1; i < numPt; i++){
+        for(UINT32 i = key_idxs[j]; i < numPt; i++){
             distV    = m_pDistMat->GetData(ptY[i], ptX[i], dist_ch[0]);
             x       += 1;
             acc_y   += distV;
             acc_xy  += distV*m_lutX.GetData(x, 5);
             acc_y_2 += pow(distV, 2);
             
-            if((k < num_keyPt-1 &&i == key_idxs[k]-1) || (k == num_keyPt-1 && i == numPt-1)){
+            if((k < num_keyPt-1 && i == key_idxs[k]-1) || (k == num_keyPt-1 && i == numPt-1)){
                 out_lutY0.SetData(acc_y, j, k, 0);
                 out_lutY0.SetData(acc_xy, j, k, 1);
                 out_lutY0.SetData(acc_y_2, j, k, 2);
@@ -147,7 +147,7 @@ void Segment_Fit::ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &
         double distV   = j<num_keyPt-1? 0 : m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[1]);
         double x       = j<num_keyPt-1? -1: 0;
         double acc_y   = distV;
-        double acc_xy  = 0;
+        double acc_xy  = distV*m_lutX.GetData(x, 5);
         double acc_y_2 = pow(distV, 2);
         
         int k = j-1;
@@ -295,14 +295,13 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
         UINT32 num_key = key_idxs.size();
         CDataTempl<double> segInfo(num_key, num_key, 5);
         map<Mkey_2D, vector<double>, MKey2DCmp>      semScore;
-        map<Mkey_2D, map<string, double>, MKey2DCmp> fitResult;
-        for(UINT32 i=0; i < num_key-1; i++){
+        for(UINT32 i=0; i < num_key; i++){
             UINT32 len_2end = num_pt - key_idxs[i];
             SemanticScoreStartFrom(semScore, len_2end, i, ptYs, ptXs, key_idxs);
             for(UINT32 j=i+1; j<key_idxs.size(); j++){
                 vector<double> fit_err_0 = FitSegmentError_ij(i, j, meanD[0], lut_Y0, key_idxs);
                 vector<double> fit_err_1 = FitSegmentError_ij(i, j, meanD[1], lut_Y1, key_idxs);
-                segInfo.SetData(fit_err_0[0]+fit_err_1[0], i, j, 0);
+                segInfo.SetData(fit_err_0[0]+fit_err_0[0], i, j, 0);
                 segInfo.SetData(fit_err_0[1], i, j, 1);
                 segInfo.SetData(fit_err_0[2], i, j, 2);
                 //segInfo.SetData(m_pDistMat->GetData(ptYs[i], ptXs[i], dist_ch[0]), i, j, 2);
