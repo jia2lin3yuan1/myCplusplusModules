@@ -26,7 +26,7 @@ if('notsave' in args.outPath):
     plt.imshow(ta)
     plt.show()
 else:
-    mImage.imsave(args.outPath, ta_clr)
+    mImage.imsave(args.outPath, ta)
 '''
 
 ta = np.loadtxt('output/test_extend.csv', delimiter=',')

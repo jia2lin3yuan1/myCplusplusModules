@@ -91,8 +91,8 @@ public: //Functions
         return m_dp_segInfo;
     }
 
-    void AssignAllSegments(CDataTempl<double> &seg_info, vector<int> &all_idxs, vector<int> &ptY, vector<int> &ptX, int *dist_ch);
-    void AssignDpSegments(CDataTempl<double> &seg_info, auto &semScore, vector<int> &dp_idxs, vector<int> &ptY, vector<int> &ptX);
+    void AssignAllSegments(auto &seg_fitinfo, vector<int> &all_idxs, vector<int> &ptY, vector<int> &ptX, int *dist_ch);
+    void AssignDpSegments(auto &seg_fitinfo, auto &semScore, vector<int> &dp_idxs, vector<int> &ptY, vector<int> &ptX);
    
     double GetAllSegFitError(int y0, int x0, int y1, int x1);
     double GetAllSegFitErrorOnAny2Points(int y0, int x0, int y1, int x1);
@@ -105,7 +105,7 @@ public: //Functions
 };
 
 
-void Segment_Stock::AssignAllSegments(CDataTempl<double> &seg_info,  vector<int> &all_idxs, vector<int> &ptY, vector<int> &ptX, int *dist_ch){
+void Segment_Stock::AssignAllSegments(auto &seg_fitinfo,  vector<int> &all_idxs, vector<int> &ptY, vector<int> &ptX, int *dist_ch){
     
     // assign segments to segment stock
     for(int k0=0; k0<all_idxs.size()-1; k0++){
@@ -117,13 +117,14 @@ void Segment_Stock::AssignAllSegments(CDataTempl<double> &seg_info,  vector<int>
             int x1 = ptX[all_idxs[k1]];
            
             Aseg a_seg(y0, x0, y1, x1);
-            m_all_seg[a_seg].fit_err = seg_info.GetData(k0, k1, 0);
-            m_all_seg[a_seg].w[0]    = seg_info.GetData(k0, k1, 1);
-            m_all_seg[a_seg].b[0]    = seg_info.GetData(k0, k1, 2);
+            Mkey_2D inkey(all_idxs[k0], all_idxs[k1]);
+            m_all_seg[a_seg].fit_err = seg_fitinfo[inkey]["error"];
+            m_all_seg[a_seg].w[0]    = seg_fitinfo[inkey]["w"];
+            m_all_seg[a_seg].b[0]    = seg_fitinfo[inkey]["b"];
             m_all_seg[a_seg].ch[0]   = dist_ch[0];
             
-            m_all_seg[a_seg].w[1]    = seg_info.GetData(k0, k1, 3);
-            m_all_seg[a_seg].b[1]    = seg_info.GetData(k0, k1, 4);
+            m_all_seg[a_seg].w[1]    = seg_fitinfo[inkey]["w"];
+            m_all_seg[a_seg].b[1]    = seg_fitinfo[inkey]["b"];
             m_all_seg[a_seg].ch[1]   = dist_ch[1];
         }
     }
@@ -148,7 +149,7 @@ void Segment_Stock::AssignAllSegments(CDataTempl<double> &seg_info,  vector<int>
     }
 }
 
-void Segment_Stock::AssignDpSegments(CDataTempl<double> &seg_info, auto &semScore, vector<int> &dp_idxs, vector<int> &ptY, vector<int> &ptX){
+void Segment_Stock::AssignDpSegments(auto &seg_fitinfo, auto &semScore, vector<int> &dp_idxs, vector<int> &ptY, vector<int> &ptX){
     int seg_id = m_dp_seg.size()+1;
     
     // assign. 
@@ -159,24 +160,24 @@ void Segment_Stock::AssignDpSegments(CDataTempl<double> &seg_info, auto &semScor
         int x1 = ptX[dp_idxs[ck]];
         int seg_len = dp_idxs[ck] - dp_idxs[ck-2]; 
         
-        Mkey_2D key(dp_idxs[ck-3], dp_idxs[ck-1]);
-        if(semScore[key][0] < 0.5){
+        Mkey_2D inkey(dp_idxs[ck-2], dp_idxs[ck]);
+        if(semScore[inkey][0] < 1.5){
             DpSeg dp_seg(seg_len, y0, x0, y1, x1);
-            dp_seg.seg_info.fit_err = seg_info.GetData(dp_idxs[ck-3], dp_idxs[ck-1]);    
-            dp_seg.seg_info.sem_score.assign(semScore[key].begin(), semScore[key].end());
+            dp_seg.seg_info.fit_err = seg_fitinfo[inkey]["error"];
+            dp_seg.seg_info.sem_score.assign(semScore[inkey].begin(), semScore[inkey].end());
             m_dp_seg[seg_id] = dp_seg;
       
             // record seg id to image.
             if(y1==y0){
                 m_dp_segInfo.ResetBulkData(seg_id, y0, 1, x0, x1-x0, e_seg_h, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-                m_dp_segInfo.ResetBulkData(ck-1, y0, 1, x0, x1-x0, e_seg_h, 1);
+                m_dp_segInfo.ResetBulkData(dp_seg.seg_info.fit_err, y0, 1, x0, x1-x0, e_seg_h, 1);
 #endif
             }
             else{
                 m_dp_segInfo.ResetBulkData(seg_id, y0, y1-y0, x0, 1, e_seg_v, 1);
 #ifdef DEBUG_SEGMENT_STOCK
-                m_dp_segInfo.ResetBulkData(ck-1, y0, y1-y0, x0, 1, e_seg_v, 1);
+                m_dp_segInfo.ResetBulkData(dp_seg.seg_info.fit_err, y0, y1-y0, x0, 1, e_seg_v, 1);
 #endif
             }
             seg_id += 1;

@@ -21,20 +21,20 @@ using namespace std;
 // Target: Given a 1D vector, find the best way to fit it into several sections.
 //
 
-enum Dist_Ch {e_dist_lft=0, e_dist_rht, e_dist_bot, e_dist_top, e_dist_num_ch};
+enum Dist_Ch {e_dist_lft=0, e_dist_rht, e_dist_top, e_dist_bot, e_dist_num_ch};
 enum Fit_Mode {e_fit_hor=0, e_fit_ver, e_fit_num};
 class Segment_Fit{
 protected:
     // inpute
-    const CDataTempl<int>  *m_pSem_bg;  // [2D: ht*wd]
-    const CDataTempl<int> *m_pSemI;    // [2D: ht*wd]
+    const CDataTempl<UINT8>  *m_pSem_bg;  // [2D: ht*wd]
+    const CDataTempl<UINT32> *m_pSemI;    // [2D: ht*wd]
     const CDataTempl<double>  *m_pSemMat;  // [3D: ht*wd*num_classes]
     const CDataTempl<double>  *m_pDistMat; // [3D: ht*wd*num_dist]
-    int m_fitseg_method;
+    UINT8 m_fitseg_method;
     
     // generated data, used in whole class.
-    int m_ht,  m_wd;
-    int m_num_sem, m_num_dist;
+    UINT32 m_ht,  m_wd;
+    UINT32 m_num_sem, m_num_dist;
     CDataTempl<double>     m_lutX;
 
     // parameter
@@ -42,7 +42,7 @@ protected:
     
     
 public:
-    Segment_Fit(const GlbParam *pParam, const CDataTempl<int> *pSemBg, const CDataTempl<int> *pSemI, const CDataTempl<double> *pSemMat, const CDataTempl<double> *pDistMat, int fit_method=1){
+    Segment_Fit(const GlbParam *pParam, const CDataTempl<UINT8> *pSemBg, const CDataTempl<UINT32> *pSemI, const CDataTempl<double> *pSemMat, const CDataTempl<double> *pDistMat, UINT8 fit_method=1){
         m_pParam   = pParam;
         m_pSem_bg  = pSemBg;
         m_pSemI    = pSemI;
@@ -55,7 +55,7 @@ public:
         m_num_sem  = m_pSemMat->GetZDim(); 
         m_num_dist = m_pDistMat->GetZDim(); 
         
-        int lutX_len = max(m_ht, m_wd);
+        UINT32 lutX_len = max(m_ht, m_wd);
         InitLUTx(lutX_len);
     }
    
@@ -66,30 +66,30 @@ public:
 
 protected:
     // prepare data for computing
-    void InitLUTx(int len);
+    void InitLUTx(UINT32 len);
 
     // prepare data for computing based on each line.
-    void ComputeLUTy_byLine(int numPt, const auto &ptY, const auto &ptX, int *dist_ch, const auto &key_idxs, 
+    void ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &ptX, UINT32 *dist_ch, const auto &key_idxs, 
                             CDataTempl<double> &out_lutY0, CDataTempl<double> &out_lutY1);
     
     // find key points given point list.
-    void FindKeyPoints(const int numPt, const vector<int> &ptY, const vector<int> &ptX, int *dist_ch, vector<int> &out_key_idxs);
+    void FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, const vector<UINT32> &ptX, UINT32 *dist_ch, vector<UINT32> &out_key_idxs);
     // attribute of segment starting at key_idxs[stK]:
-    vector<double> FitSegmentError_ij(int idx_i, int idx_j, double meanY, const CDataTempl<double> &lutY, const vector<int> &key_idxs);
-    void SemanticScoreStartFrom(auto &semScore, int len, int stK, 
-                                    const vector<int> &ptY, const vector<int> &ptX, const vector<int> &key_idxs);
+    vector<double> FitSegmentError_ij(UINT32 idx_i, UINT32 idx_j, double meanY, const CDataTempl<double> &lutY, const vector<UINT32> &key_idxs);
+    void SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK, 
+                                    const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs);
     
     // Dynamic Programming to find best partitions of the line.
-    void DP_segments(const CDataTempl<double> &seg_info, auto &semScore, const vector<int> &ptY, const vector<int> &ptX,
-                      const vector<int> &key_idxs, vector<int> &dp_idxs);
+    void DP_segments(const CDataTempl<double> &seg_info, auto &semScore, const vector<UINT32> &ptY, const vector<UINT32> &ptX,
+                      const vector<UINT32> &key_idxs, vector<UINT32> &dp_idxs);
 };
 
-void Segment_Fit::InitLUTx(int len){
+void Segment_Fit::InitLUTx(UINT32 len){
     m_lutX.Init(len, 6); // 0-acc_x^2, 1-acc_x, 2-1/(acc_x^2*(x+1) - acc_x*acc_x)
                            // 3-1/(x+1), 4-1/(x^2), 5-x
     m_lutX.SetData(1.0, 0, 3);
     double cumsum_powK = 0, cumsum_K = 0;
-    for(int k = 1; k < len; k ++){
+    for(UINT32 k = 1; k < len; k ++){
         cumsum_K    += k;
         cumsum_powK += pow(k, 2); 
         m_lutX.SetData(cumsum_powK, k, 0);
@@ -112,28 +112,28 @@ void Segment_Fit::InitLUTx(int len){
  * output: CDataTempl<double> (len_key, len_key, 3). for:
  *            0-acc_y  ** 1-acc_yx  ** 2-acc_y_2
  */
-void Segment_Fit::ComputeLUTy_byLine(int numPt, const auto &ptY, const auto &ptX, int *dist_ch, const auto &key_idxs, 
+void Segment_Fit::ComputeLUTy_byLine(UINT32 numPt, const auto &ptY, const auto &ptX, UINT32 *dist_ch, const auto &key_idxs, 
                                     CDataTempl<double> &out_lutY0, CDataTempl<double> &out_lutY1){
-    int num_keyPt = key_idxs.size();
+    UINT32 num_keyPt = key_idxs.size();
 
     // the first channel.
     out_lutY0.Init(num_keyPt, num_keyPt, 3);
-    for(int j = 0; j < num_keyPt-1; j ++){
-        double distV   = 0;
+    for(UINT32 j = 0; j < num_keyPt-1; j ++){
+        double distV   = m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[0]);
         double x       = 0;
         double acc_y   = distV;
-        double acc_xy  = distV*m_lutX.GetData(x, 5);
-        double acc_y_2 = pow(distV, 2);
+        double acc_xy  = 0;
+        double acc_y_2 = pow(distV,2);
         
-        int k = j+1;
-        for(int i = key_idxs[j]; i < numPt; i++){
+        UINT32 k = j+1;
+        for(UINT32 i = key_idxs[j]+1; i < numPt; i++){
             distV    = m_pDistMat->GetData(ptY[i], ptX[i], dist_ch[0]);
             x       += 1;
             acc_y   += distV;
             acc_xy  += distV*m_lutX.GetData(x, 5);
             acc_y_2 += pow(distV, 2);
             
-            if((k < num_keyPt-1 && i == key_idxs[k]-1) || (k == num_keyPt-1 && i == numPt-1)){
+            if((k < num_keyPt-1 &&i == key_idxs[k]-1) || (k == num_keyPt-1 && i == numPt-1)){
                 out_lutY0.SetData(acc_y, j, k, 0);
                 out_lutY0.SetData(acc_xy, j, k, 1);
                 out_lutY0.SetData(acc_y_2, j, k, 2);
@@ -147,7 +147,7 @@ void Segment_Fit::ComputeLUTy_byLine(int numPt, const auto &ptY, const auto &ptX
         double distV   = j<num_keyPt-1? 0 : m_pDistMat->GetData(ptY[key_idxs[j]], ptX[key_idxs[j]], dist_ch[1]);
         double x       = j<num_keyPt-1? -1: 0;
         double acc_y   = distV;
-        double acc_xy  = distV*m_lutX.GetData(x, 5);
+        double acc_xy  = 0;
         double acc_y_2 = pow(distV, 2);
         
         int k = j-1;
@@ -169,16 +169,16 @@ void Segment_Fit::ComputeLUTy_byLine(int numPt, const auto &ptY, const auto &ptX
 }
 
 
-void Segment_Fit::SemanticScoreStartFrom(auto &semScore, int len, int stK, 
-                    const vector<int> &ptY, const vector<int> &ptX, const vector<int> &key_idxs){
-    int idx_len = key_idxs.size();
+void Segment_Fit::SemanticScoreStartFrom(auto &semScore, UINT32 len, UINT32 stK, 
+                    const vector<UINT32> &ptY, const vector<UINT32> &ptX, const vector<UINT32> &key_idxs){
+    UINT32 idx_len = key_idxs.size();
     vector<double>  acc_sem_score(m_num_sem, 0);
-    for(int k =stK+1; k < idx_len; k ++){
+    for(UINT32 k =stK+1; k < idx_len; k ++){
         Mkey_2D key(stK, k);
         semScore[key].resize(m_num_sem, 0);
-        int pt_len = key_idxs[k] - key_idxs[stK]; // length of segments [point_stK, point_k)
-        for(int j=0; j<m_num_sem; j++){
-            for(int i=key_idxs[k-1]; i < key_idxs[k]; i++){
+        UINT32 pt_len = key_idxs[k] - key_idxs[stK]; // length of segments [point_stK, point_k)
+        for(UINT32 j=0; j<m_num_sem; j++){
+            for(UINT32 i=key_idxs[k-1]; i < key_idxs[k]; i++){
                 acc_sem_score[j] += m_pSemMat->GetData(ptY[i], ptX[i], j);
             }
             semScore[key][j] = acc_sem_score[j] / double(pt_len);
@@ -204,14 +204,14 @@ void Segment_Fit::SemanticScoreStartFrom(auto &semScore, int len, int stK,
  *     ptY/ptX: all points.
  *     key_idxs: index of key points.
  */
-vector<double> Segment_Fit::FitSegmentError_ij(int idx_i, int idx_j, double meanY, const CDataTempl<double> &lutY, const vector<int> &key_idxs){
+vector<double> Segment_Fit::FitSegmentError_ij(UINT32 idx_i, UINT32 idx_j, double meanY, const CDataTempl<double> &lutY, const vector<UINT32> &key_idxs){
     vector<double> fit_rst(3, 0);
     if(lutY.GetData(idx_i, idx_j, 0) == 0){
         return fit_rst;
     }
 
     // fit w, b:  y = wx + b.
-    int tk = key_idxs[idx_j] - key_idxs[idx_i] - 1;
+    UINT32 tk = key_idxs[idx_j] - key_idxs[idx_i] - 1;
     double w, b;
     if (m_fitseg_method == 1){
         b = (lutY.GetData(idx_i, idx_j, 0)*m_lutX.GetData(tk, 0) - lutY.GetData(idx_i, idx_j, 1)*m_lutX.GetData(tk, 1)) * m_lutX.GetData(tk, 2);
@@ -240,9 +240,9 @@ vector<double> Segment_Fit::FitSegmentError_ij(int idx_i, int idx_j, double mean
  * compute fitting error for combination of any two key points.[st, end] 
  */
 void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStock){
-    auto ComputeMeanDistance = [&](int *dist_ch, int numPt, vector<int> &ptY, vector<int> &ptX, double *meanD){
+    auto ComputeMeanDistance = [&](UINT32 *dist_ch, UINT32 numPt, vector<UINT32> &ptY, vector<UINT32> &ptX, double *meanD){
         meanD[0] = 0;   meanD[1] = 0;
-        for(int k=0; k < numPt; k++){
+        for(UINT32 k=0; k < numPt; k++){
             meanD[0] += m_pDistMat->GetData(ptY[k], ptX[k], dist_ch[0]);
             meanD[1] += m_pDistMat->GetData(ptY[k], ptX[k], dist_ch[1]);
         }
@@ -253,30 +253,30 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
    
     // Main process.
     // prepare data.
-    int num_line, num_pt, dist_ch[2];
-    vector<int> ptYs(m_ht+1, 0);
-    vector<int> ptXs(m_wd+1, 0);
+    UINT32 num_line, num_pt, dist_ch[2];
+    vector<UINT32> ptYs(m_ht+1, 0);
+    vector<UINT32> ptXs(m_wd+1, 0);
     if(mode == e_fit_hor){
         num_line   = m_ht;   
         num_pt     = m_wd;
         dist_ch[0] = e_dist_lft;
         dist_ch[1] = e_dist_rht;
 
-        for(int k=0; k<=m_wd; k++)
+        for(UINT32 k=0; k<=m_wd; k++)
             ptXs[k] = k; 
     }
     else{ // e_fit_ver
         num_line   = m_wd;   
         num_pt     = m_ht;
-        dist_ch[0] = e_dist_bot;
-        dist_ch[1] = e_dist_top;
+        dist_ch[0] = e_dist_top;
+        dist_ch[1] = e_dist_bot;
         
-        for(int k=0; k<=m_ht; k++)
+        for(UINT32 k=0; k<=m_ht; k++)
             ptYs[k] = k; 
     }
 
     // start process for each line
-    for(int k=0; k < num_line; k++){
+    for(UINT32 k=0; k < num_line; k++){
         if(mode==e_fit_hor)
             ptYs.assign(m_wd+1, k);
         else
@@ -285,34 +285,33 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
         // prepare.
         double meanD[2];
         ComputeMeanDistance(dist_ch, num_pt, ptYs, ptXs, meanD);
-        vector<int> key_idxs;
+        vector<UINT32> key_idxs;
         FindKeyPoints(num_pt, ptYs, ptXs, dist_ch, key_idxs);
         CDataTempl<double> lut_Y0;
         CDataTempl<double> lut_Y1;
         ComputeLUTy_byLine(num_pt, ptYs, ptXs, dist_ch, key_idxs, lut_Y0, lut_Y1);
        
         // compute information for each small segment.
-        int num_key = key_idxs.size();
+        UINT32 num_key = key_idxs.size();
         CDataTempl<double> segInfo(num_key, num_key, 5);
         map<Mkey_2D, vector<double>, MKey2DCmp>      semScore;
-        for(int i=0; i < num_key; i++){
-            int len_2end = num_pt - key_idxs[i];
+        map<Mkey_2D, map<string, double>, MKey2DCmp> fitResult;
+        for(UINT32 i=0; i < num_key-1; i++){
+            UINT32 len_2end = num_pt - key_idxs[i];
             SemanticScoreStartFrom(semScore, len_2end, i, ptYs, ptXs, key_idxs);
-            for(int j=i+1; j<key_idxs.size(); j++){
+            for(UINT32 j=i+1; j<key_idxs.size(); j++){
                 vector<double> fit_err_0 = FitSegmentError_ij(i, j, meanD[0], lut_Y0, key_idxs);
                 vector<double> fit_err_1 = FitSegmentError_ij(i, j, meanD[1], lut_Y1, key_idxs);
-                segInfo.SetData(fit_err_0[0]+fit_err_0[0], i, j, 0);
+                segInfo.SetData(fit_err_0[0]+fit_err_1[0], i, j, 0);
                 segInfo.SetData(fit_err_0[1], i, j, 1);
                 segInfo.SetData(fit_err_0[2], i, j, 2);
-                //segInfo.SetData(m_pDistMat->GetData(ptYs[i], ptXs[i], dist_ch[0]), i, j, 2);
                 segInfo.SetData(fit_err_1[1], i, j, 3);
                 segInfo.SetData(fit_err_1[2], i, j, 4);
-                //segInfo.SetData(m_pDistMat->GetData(ptYs[j], ptXs[j], dist_ch[1]), i, j, 4);
             }
         }
 
         // DP to cut line into optimal partitions.
-        vector<int> dp_idxs;
+        vector<UINT32> dp_idxs;
         DP_segments(segInfo, semScore, ptYs, ptXs, key_idxs, dp_idxs);
 
         // Save segment information to segment stock.
@@ -325,12 +324,12 @@ void Segment_Fit::FittingFeasibleSolution(Fit_Mode mode, Segment_Stock *pSegStoc
  * find key points given Y0 and Y1.
  *    input:  dist_ch, which 2 channels are looking into in distance mat.
  */
-void Segment_Fit::FindKeyPoints(const int numPt, const vector<int> &ptY, const vector<int> &ptX, int *dist_ch, 
-                                vector<int> &out_key_idxs){
-    auto IsKeyPoint = [&](int k, int &state_0, int &state_1){
+void Segment_Fit::FindKeyPoints(const UINT32 numPt, const vector<UINT32> &ptY, const vector<UINT32> &ptX, UINT32 *dist_ch, 
+                                vector<UINT32> &out_key_idxs){
+    auto IsKeyPoint = [&](UINT32 k, int &state_0, int &state_1){
         int isKey = -1;
-        int cy = ptY[k],   cx = ptX[k];
-        int py = ptY[k-1], px = ptX[k-1];
+        UINT32 cy = ptY[k],   cx = ptX[k];
+        UINT32 py = ptY[k-1], px = ptX[k-1];
         double dist_c0 = m_pDistMat->GetData(cy, cx, dist_ch[0]);
         double dist_p0 = m_pDistMat->GetData(py, px, dist_ch[0]);
         double dist_c1 = m_pDistMat->GetData(cy, cx, dist_ch[1]);
@@ -403,8 +402,8 @@ void Segment_Fit::FindKeyPoints(const int numPt, const vector<int> &ptY, const v
    
     // check points [1, numPt-2]
     int state_0 = 0,  state_1 = 0;
-    for(int k=1; k < numPt-1; k ++){
-        if(true){//IsKeyPoint(k, state_0, state_1)){
+    for(UINT32 k=1; k < numPt-1; k ++){
+        if(IsKeyPoint(k, state_0, state_1)){
             out_key_idxs.insert(out_key_idxs.end(), k);
         }
     }
@@ -415,12 +414,12 @@ void Segment_Fit::FindKeyPoints(const int numPt, const vector<int> &ptY, const v
 /*
  * Dynamic Programming to find best partitions of the line.
  */
-void Segment_Fit::DP_segments(const CDataTempl<double> &seg_info, auto &semScore, const vector<int> &ptY, const vector<int> &ptX,
-                      const vector<int> &key_idxs, vector<int> &dp_idxs){
-    auto NewSegmentFromSemantic = [&](int k, int st_k, int len){
+void Segment_Fit::DP_segments(const CDataTempl<double> &seg_info, auto &semScore, const vector<UINT32> &ptY, const vector<UINT32> &ptX,
+                      const vector<UINT32> &key_idxs, vector<UINT32> &dp_idxs){
+    auto NewSegmentFromSemantic = [&](UINT32 k, UINT32 st_k, UINT32 len){
         // semantic background
-        int py = (ptY[key_idxs[k]] + ptY[key_idxs[k-1]])/2;
-        int px = (ptX[key_idxs[k]] + ptX[key_idxs[k-1]])/2;
+        UINT32 py = (ptY[key_idxs[k]] + ptY[key_idxs[k-1]])/2;
+        UINT32 px = (ptX[key_idxs[k]] + ptX[key_idxs[k-1]])/2;
         if(m_pSem_bg->GetData(py, px) == 1)
             return 1;
     
@@ -437,17 +436,17 @@ void Segment_Fit::DP_segments(const CDataTempl<double> &seg_info, auto &semScore
     };
 
     // forward-backward recordings:
-    int len  = key_idxs.size();
+    UINT32 len  = key_idxs.size();
     vector<double>  acc_costV(len, 0);
     vector<double>  seg_costV(len, 0);
     vector<int>    acc_numV(len, 0);
     vector<int>    bk_routeV(len, 0);
 
     // forward.
-    int st_k = 0;
-    for(int k = 1; k < len; k++){
+    UINT32 st_k = 0;
+    for(UINT32 k = 1; k < len; k++){
         // check if the semantic information implies starting of a new segment.
-        int semantic_type = NewSegmentFromSemantic(k, st_k, len);
+        UINT32 semantic_type = NewSegmentFromSemantic(k, st_k, len);
         if(semantic_type == 1){
            st_k          = k;
            acc_costV[k]  = 0;
@@ -458,9 +457,9 @@ void Segment_Fit::DP_segments(const CDataTempl<double> &seg_info, auto &semScore
         }
         
         // traverse all availabe selection, find the optimal solution
-        int min_idx = 0;
+        UINT32 min_idx = 0;
         double min_cost = 2*m_pParam->segFit_dp_inf_err, min_fitCost=0, min_numSeg=0;
-        for(int j = st_k; j < k; j ++){
+        for(UINT32 j = st_k; j < k; j ++){
             // compute cost for having segment [iniIdxs[st_k],  iniIdxs[j])
             // double BIC_cost  = (acc_numV[j]+1) * Log_LUT(m_iniIdxs[k]-m_iniIdxs[st_k]+1);
             double BIC_cost  = (acc_numV[j]+1) * log(key_idxs[k]-key_idxs[st_k]+1);
@@ -491,7 +490,7 @@ void Segment_Fit::DP_segments(const CDataTempl<double> &seg_info, auto &semScore
     }
 
     // backward.
-    int ci  = len-1;
+    UINT32 ci  = len-1;
     while(ci > 0){
         dp_idxs.insert(dp_idxs.begin(), key_idxs[ci]);
         dp_idxs.insert(dp_idxs.begin(), ci);

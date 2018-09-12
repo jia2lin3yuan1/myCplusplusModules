@@ -46,10 +46,10 @@ typedef bool           BOOL;
 
 //
 typedef struct SeedNode_OneKey{
-    UINT32 id0;
+    int id0;
     double cost;
     
-    SeedNode_OneKey(UINT32 a=0, double c=0){id0=a; cost=c;}
+    SeedNode_OneKey(int a=0, double c=0){id0=a; cost=c;}
 }Seed_1D;
 
 struct SeedCmp_1D{ // Increasing order
@@ -65,13 +65,13 @@ struct SeedCmp_1D_Dec{ // Decreasing order.
 
 //
 typedef struct SeedNode{
-    UINT32 id0;
-    UINT32 id1;
+    int id0;
+    int id1;
     double cost;
 
-    UINT32 tmp0;
-    UINT32 tmp1;
-    SeedNode(UINT32 a=0, UINT32 b=0, double c=0, UINT32 d=0, UINT32 e=0){id0=a; id1=b; cost=c; tmp0=d; tmp1=e;}
+    int tmp0;
+    int tmp1;
+    SeedNode(int a=0, int b=0, double c=0, int d=0, int e=0){id0=a; id1=b; cost=c; tmp0=d; tmp1=e;}
 }Seed;
 struct SeedCmp{
     bool operator()(const Seed &lhs, const Seed &rhs){
@@ -81,9 +81,9 @@ struct SeedCmp{
 
 //
 typedef struct MapKey_2D{
-    UINT32 id0;
-    UINT32 id1;
-    MapKey_2D(UINT32 a=0, UINT32 b=0){id0=a; id1 = b;}
+    int id0;
+    int id1;
+    MapKey_2D(int a=0, int b=0){id0=a; id1 = b;}
 }Mkey_2D;
 struct MKey2DCmp{
     bool operator()(const Mkey_2D &lhs, const Mkey_2D &rhs){
@@ -108,21 +108,21 @@ typedef struct Global_Parameters{
     double  segGrow_seed_sem_alpha;
     double  segGrow_seed_bic_alpha;
     double  segGrow_seed_bic_scale;
-    UINT32 segGrow_seed_size_thr;
+    int segGrow_seed_size_thr;
     
     double  segGrow_extd_semdiff_thr;
 
     double  segGrow_shrk_bic_alpha;
-    UINT32 segGrow_shrk_bic_addi_len;
+    int segGrow_shrk_bic_addi_len;
     double  segGrow_shrk_fit_cost_thr;
     double  segGrow_shrk_fit_cost_penalty;
     double  segGrow_shrk_cost_thr;
 
-    UINT32 segGrow_proposal_size_thr;
+    int segGrow_proposal_size_thr;
     bool   segGrow_rm_label0;
 
     // segment merge.
-    UINT32 merge_supix_bic_addi_len;
+    int merge_supix_bic_addi_len;
     
     double  merge_edge_conn_alpha;
     double  merge_edge_geo_alpha;
@@ -136,7 +136,7 @@ typedef struct Global_Parameters{
     double  merge_merger_thr;
 
     // tri-map.
-    UINT32 tri_supix_bic_addi_len;
+    int tri_supix_bic_addi_len;
     double  tri_supix_bic_scale;
 
     double  tri_seed_sem_alpha;
@@ -225,7 +225,7 @@ double glb_hist_w_thr[] = {-5e-2,   -2e-2, -1.8e-2, -1.6e-2, -1.4e-2,
                          1.8e-2,    2e-2,    5e-2};
 #endif
 template<typename T2>
-UINT32 vote2histogram_w(T2 val){
+int vote2histogram_w(T2 val){
     for(int k =0; k<HIST_W_NUM_BIN-1; k++){
         if(val < glb_hist_w_thr[k])
             return k;
@@ -237,7 +237,7 @@ UINT32 vote2histogram_w(T2 val){
 template<typename T2>
 double _ChiDifference(std::vector<T2> &obsV, std::vector<T2> &expV){
     double diff = 0; 
-    for(UINT32 k=0; k<obsV.size(); k++){
+    for(int k=0; k<obsV.size(); k++){
         diff += double(pow(obsV[k]-expV[k], 2))/double(expV[k]+obsV[k]);
     }
 
@@ -259,7 +259,7 @@ template<typename T>
 inline std::string _Int2String(T val, T fix_len=5){
     std::string str;
     std::stringstream stream;
-    stream<<std::setfill('0')<<std::setw(UINT32(fix_len))<<UINT32(val);
+    stream<<std::setfill('0')<<std::setw(int(fix_len))<<int(val);
     stream>>str;
     stream.clear();
     
@@ -267,8 +267,8 @@ inline std::string _Int2String(T val, T fix_len=5){
 }
 
 template<typename T>
-inline UINT32 _String2Int(std::string str){
-    UINT32 val;
+inline int _String2Int(std::string str){
+    int val;
     std::stringstream stream;
     stream << str;
     stream >> val;

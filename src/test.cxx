@@ -45,6 +45,7 @@ string printMap(auto *pMap){
 
 int main(){
 
+    vector<vector<int>> db_vec;
     vector<int>  my_vec;
     my_vec.push_back(1);
     my_vec.push_back(7);
@@ -53,19 +54,12 @@ int main(){
     my_vec.push_back(4);
     my_vec.push_back(3);
     my_vec.push_back(2);
-    cout<<"output vector:: "<< endl;
-    for(auto ele : my_vec){
-        cout<<ele<<", ";
-    }
-    cout<<endl;
-
-    my_vec.assign(18, 30);
-    cout<<"output vector:: "<< endl;
-    for(auto ele : my_vec){
-        cout<<ele<<", ";
-    }
-    cout<<endl;
-
+    db_vec.push_back(my_vec);
+    
+    my_vec[0] = 10;
+    my_vec[1] = 20;
+    my_vec[2] = 30;
+    db_vec.push_back(my_vec);
 
     return 0;
 

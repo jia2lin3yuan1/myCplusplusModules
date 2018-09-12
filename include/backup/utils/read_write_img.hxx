@@ -16,8 +16,8 @@
 template<typename DT>
 void ReadFromCSV(CDataTempl<DT> &img, std::string fpath,int imgCh =0)
 {
-    int imgHt = img.GetYDim();
-    int imgWd = img.GetXDim();
+    UINT32 imgHt = img.GetYDim();
+    UINT32 imgWd = img.GetXDim();
 
     double rdVal;
     std::string line;
@@ -47,8 +47,8 @@ void ReadFromCSV(CDataTempl<DT> &img, std::string fpath,int imgCh =0)
 
 template<typename DT>
 void WriteToCSV(CDataTempl<DT> &img, std::string fpath, int imgCh=0){
-    int imgHt = img.GetYDim();
-    int imgWd = img.GetXDim();
+    UINT32 imgHt = img.GetYDim();
+    UINT32 imgWd = img.GetXDim();
 
     std::ofstream outfile(fpath);
     

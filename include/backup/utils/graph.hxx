@@ -15,18 +15,18 @@ using namespace std;
 class BndryPix{
 public: 
     // Pixel indices. pix1 should on upper/left side of pix2.
-    int pix1;
-    int pix2;
+    UINT32 pix1;
+    UINT32 pix2;
 
     // super pixels they belong to
-    int sup1;
-    int sup2;
+    UINT32 sup1;
+    UINT32 sup2;
     
     // edge value between them.
     double edgeval;
     
     // Functions
-    BndryPix(int p1=0, int p2=0, int s1=0, int s2=0, double bdV=0){
+    BndryPix(UINT32 p1=0, UINT32 p2=0, UINT32 s1=0, UINT32 s2=0, double bdV=0){
         if(p1 <= p2){
             pix1 = p1;  pix2 = p2;
             sup1 = s1;  sup2 = s2;
@@ -38,7 +38,7 @@ public:
         edgeval=bdV;
     }
 
-    void ModifySuperPixel(int new_sup, int ori_sup){
+    void ModifySuperPixel(UINT32 new_sup, UINT32 ori_sup){
         if(sup1 == ori_sup)
             sup1 = new_sup;
         else if(sup2==ori_sup)
@@ -48,7 +48,7 @@ public:
 
     }
 
-    int GetPixelInSuperPixel(int sup){
+    UINT32 GetPixelInSuperPixel(UINT32 sup){
         if(sup == sup1)
             return pix1;
         else
@@ -60,21 +60,21 @@ public:
 class Edge{
 public: 
     // super pixels on edge's two side. sup1 <  sup2.
-    int   sup1;
-    int   sup2;
+    UINT32   sup1;
+    UINT32   sup2;
     
     // edge value
     double  edgeval;
-    vector<int> bd_pixs;
+    vector<UINT32> bd_pixs;
     
     // Functions
-    Edge(int s1=0, int s2=0, double val=0){
+    Edge(UINT32 s1=0, UINT32 s2=0, double val=0){
         sup1 = s1 < s2? s1 : s2; 
         sup2 = s1 < s2? s2 : s1; 
         edgeval=val;
     }
     
-    void ModifySuperPixel(int new_sup, int ori_sup){
+    void ModifySuperPixel(UINT32 new_sup, UINT32 ori_sup){
         if(sup1 == ori_sup)
             sup1 = new_sup;
         else if(sup2 == ori_sup)
@@ -93,10 +93,10 @@ public:
 class  Supix{
 public: 
     // included pixels.
-    vector<int> pixs;
+    vector<UINT32> pixs;
 
     // adjacent superpixes and the edge between them. <nei_supix_id, edge_id>
-    map<int, int> adjacents;
+    map<UINT32, UINT32> adjacents;
     
     // Functions
     Supix(){
@@ -107,54 +107,54 @@ public:
 template<typename NODE, typename EDGE, typename BORDER>
 class Graph{
 protected:
-    map<int, BORDER> m_borders; // border pixels.
-    map<int, EDGE>   m_edges;   // edges, 
-    map<int, NODE>   m_supixs;  // super pixel starting from label 1. label 0 is assigned to uneffective pixels and out-of-boundary case.
+    map<UINT32, BORDER> m_borders; // border pixels.
+    map<UINT32, EDGE>   m_edges;   // edges, 
+    map<UINT32, NODE>   m_supixs;  // super pixel starting from label 1. label 0 is assigned to uneffective pixels and out-of-boundary case.
 
-    const CDataTempl<int>  *m_pInLabelI;
-    CDataTempl<int>         m_outLabelI;
-    int m_ht, m_wd;
+    const CDataTempl<UINT32>  *m_pInLabelI;
+    CDataTempl<UINT32>         m_outLabelI;
+    UINT32 m_ht, m_wd;
 
 public:
-    Graph(int ht, int wd){
+    Graph(UINT32 ht, UINT32 wd){
         m_ht = ht; m_wd = wd;
         m_outLabelI.Init(ht, wd);
     }
 
     // Label <-> Graph.
-    void AssignInputLabel(const CDataTempl<int> *pInput){
+    void AssignInputLabel(const CDataTempl<UINT32> *pInput){
         assert(m_ht == pInput->GetYDim() && m_wd==pInput->GetXDim());
         m_pInLabelI = pInput;
     }
-    CDataTempl<int> & AssignOutputLabel();
+    CDataTempl<UINT32> & AssignOutputLabel();
     void CreateGraphFromLabelI();
     
     // operators on graph
-    void MergeSuperPixels(int sup0, int sup1);
+    void MergeSuperPixels(UINT32 sup0, UINT32 sup1);
    
-    void MergeTwoEdge(int edge0, int edge1, int sup0, int same_sup);
-    void UpdateEdge(int edge, int ori_sup, int new_sup);
-    void RemoveEdge(int edge);
+    void MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup);
+    void UpdateEdge(UINT32 edge, UINT32 ori_sup, UINT32 new_sup);
+    void RemoveEdge(UINT32 edge);
    
     // access the graph.
-    CDataTempl<int> &GetSuperPixelIdImage();
-    vector<int> GetAllSuperPixelsId();
-    NODE &GetSuperPixel(int sup);
-    vector<int> GetAllEdgesId();
-    EDGE &GetEdge(int edge);
-    BORDER &GetBorder(int bd);
+    CDataTempl<UINT32> &GetSuperPixelIdImage();
+    vector<UINT32> GetAllSuperPixelsId();
+    NODE &GetSuperPixel(UINT32 sup);
+    vector<UINT32> GetAllEdgesId();
+    EDGE &GetEdge(UINT32 edge);
+    BORDER &GetBorder(UINT32 bd);
 
 
     // virtual function as API.
-    virtual void UpdateSuperPixel(int sup, int edge){}
+    virtual void UpdateSuperPixel(UINT32 sup, UINT32 edge){}
     virtual void ComputeGraphWeights()=0;
-    virtual void ComputeEdgeWeights(int edge)=0;
+    virtual void ComputeEdgeWeights(UINT32 edge)=0;
 };
 
 // access the graph
 template<typename NODE, typename EDGE, typename BORDER>
-vector<int> Graph<NODE, EDGE, BORDER>::GetAllSuperPixelsId(){
-    vector<int> sup_vec;
+vector<UINT32> Graph<NODE, EDGE, BORDER>::GetAllSuperPixelsId(){
+    vector<UINT32> sup_vec;
     for(auto ele:m_supixs){
         if(ele.first== 0)
             continue;
@@ -164,14 +164,14 @@ vector<int> Graph<NODE, EDGE, BORDER>::GetAllSuperPixelsId(){
     return sup_vec;
 }
 template<typename NODE, typename EDGE, typename BORDER>
-NODE &Graph<NODE, EDGE, BORDER>::GetSuperPixel(int sup){
+NODE &Graph<NODE, EDGE, BORDER>::GetSuperPixel(UINT32 sup){
     assert(m_supixs.find(sup) != m_supixs.end());
     return m_supixs[sup];
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-vector<int> Graph<NODE, EDGE, BORDER>::GetAllEdgesId(){
-    vector<int> edge_vec;
+vector<UINT32> Graph<NODE, EDGE, BORDER>::GetAllEdgesId(){
+    vector<UINT32> edge_vec;
     for(auto ele:m_edges){
         edge_vec.push_back(ele.first);
     }
@@ -180,13 +180,13 @@ vector<int> Graph<NODE, EDGE, BORDER>::GetAllEdgesId(){
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-EDGE &Graph<NODE, EDGE, BORDER>::GetEdge(int edge){
+EDGE &Graph<NODE, EDGE, BORDER>::GetEdge(UINT32 edge){
     assert(m_edges.find(edge) != m_edges.end());
     return m_edges[edge];
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-BORDER &Graph<NODE, EDGE, BORDER>::GetBorder(int bd){
+BORDER &Graph<NODE, EDGE, BORDER>::GetBorder(UINT32 bd){
     assert(m_borders.find(bd) != m_borders.end());
     return m_borders[bd];
 }
@@ -194,7 +194,7 @@ BORDER &Graph<NODE, EDGE, BORDER>::GetBorder(int bd){
 
 // operators on Graph.
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(int edge0, int edge1, int sup0, int same_sup){
+void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(UINT32 edge0, UINT32 edge1, UINT32 sup0, UINT32 same_sup){
     for(auto it = m_edges[edge1].bd_pixs.begin(); it != m_edges[edge1].bd_pixs.end(); it++){
         m_borders[*it].ModifySuperPixel(sup0, same_sup);
         m_edges[edge0].bd_pixs.push_back(*it);
@@ -204,7 +204,7 @@ void Graph<NODE, EDGE, BORDER>::MergeTwoEdge(int edge0, int edge1, int sup0, int
 
 // update super pixel id in edge, and the border pixels on it.
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::UpdateEdge(int edge, int new_sup, int ori_sup){
+void Graph<NODE, EDGE, BORDER>::UpdateEdge(UINT32 edge, UINT32 new_sup, UINT32 ori_sup){
     for(auto it = m_edges[edge].bd_pixs.begin(); it!=m_edges[edge].bd_pixs.end(); it++){
         m_borders[*it].ModifySuperPixel(new_sup, ori_sup);
     }
@@ -213,7 +213,7 @@ void Graph<NODE, EDGE, BORDER>::UpdateEdge(int edge, int new_sup, int ori_sup){
 
 // Remove edge and border pixels on it from the stock.
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::RemoveEdge(int edge){
+void Graph<NODE, EDGE, BORDER>::RemoveEdge(UINT32 edge){
     for(auto it=m_edges[edge].bd_pixs.begin(); it != m_edges[edge].bd_pixs.end(); it++){
         m_borders.erase(*it); 
     }
@@ -222,7 +222,7 @@ void Graph<NODE, EDGE, BORDER>::RemoveEdge(int edge){
 
 // merge super pixels sup1 into sup0.
 template<typename NODE, typename EDGE, typename BORDER>
-void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(int sup0, int sup1){
+void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(UINT32 sup0, UINT32 sup1){
     // In main process, only process case sup1 > sup0, and merge sup1 to sup0.
     if(sup0 > sup1){
         MergeSuperPixels(sup1, sup0);
@@ -277,8 +277,8 @@ void Graph<NODE, EDGE, BORDER>::MergeSuperPixels(int sup0, int sup1){
 
 template<typename NODE, typename EDGE, typename BORDER>
 void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
-    auto CollectNeighbour = [&](int cur_idx, int cur_label, int nei_idx, int &bd_cnt, int &edge_cnt){
-        int nei_label = nei_idx < m_ht*m_wd? m_pInLabelI->GetDataByIdx(nei_idx) : 0;
+    auto CollectNeighbour = [&](UINT32 cur_idx, UINT32 cur_label, UINT32 nei_idx, UINT32 &bd_cnt, UINT32 &edge_cnt){
+        UINT32 nei_label = nei_idx < m_ht*m_wd? m_pInLabelI->GetDataByIdx(nei_idx) : 0;
         
         // new border pixel
         if(nei_label != cur_label){
@@ -297,7 +297,7 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
                 edge_cnt += 1;
             }
             else{
-                int eid = m_supixs[cur_label].adjacents[nei_label];
+                UINT32 eid = m_supixs[cur_label].adjacents[nei_label];
                 m_edges[eid].bd_pixs.push_back(bd_cnt);
             }
             
@@ -306,13 +306,13 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
     };
 
     // Main process
-    int outImg_idx = m_ht*m_wd+1;
-    int bd_cnt   = 0;
-    int edge_cnt = 0;
-    for(int py = 0; py < m_ht; py++){
-        for(int px = 0; px < m_wd; px++){
-            int pix_idx = py*m_wd + px;
-            int pix_label = m_pInLabelI->GetDataByIdx(pix_idx);
+    UINT32 outImg_idx = m_ht*m_wd+1;
+    UINT32 bd_cnt   = 0;
+    UINT32 edge_cnt = 0;
+    for(UINT32 py = 0; py < m_ht; py++){
+        for(UINT32 px = 0; px < m_wd; px++){
+            UINT32 pix_idx = py*m_wd + px;
+            UINT32 pix_label = m_pInLabelI->GetDataByIdx(pix_idx);
             
             // add the pixel to super pixel.
             m_supixs[pix_label].pixs.push_back(pix_idx);
@@ -334,21 +334,21 @@ void Graph<NODE, EDGE, BORDER>::CreateGraphFromLabelI(){
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-CDataTempl<int> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
+CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::AssignOutputLabel(){
     m_outLabelI.Reset(0);
-    // int label = 0;
+    UINT32 label = 0;
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         if(it->first == 0)
             continue;
-        m_outLabelI.ResetDataFromVector((it->second).pixs, it->first);
-        // label += 1;
+        m_outLabelI.ResetDataFromVector((it->second).pixs, label);
+        label += 1;
     }
 
     return m_outLabelI;
 }
 
 template<typename NODE, typename EDGE, typename BORDER>
-CDataTempl<int> & Graph<NODE, EDGE, BORDER>::GetSuperPixelIdImage(){
+CDataTempl<UINT32> & Graph<NODE, EDGE, BORDER>::GetSuperPixelIdImage(){
     for(auto it=m_supixs.begin(); it!= m_supixs.end(); it++){
         if(it->first == 0)
             continue;

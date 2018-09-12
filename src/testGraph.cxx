@@ -2,13 +2,13 @@
 #include "utils/graph.hxx"
 #include "utils/read_write_img.hxx"
 
-void PrepareData(std::string fpath,  CDataTempl<UINT32> &labelI){
+void PrepareData(std::string fpath,  CDataTempl<int> &labelI){
     ReadFromCSV(labelI, fpath+"label.csv");
 }
 
-void testGraph(std::string fpath, UINT32 imgHt, UINT32 imgWd){
+void testGraph(std::string fpath, int imgHt, int imgWd){
 
-    CDataTempl<UINT32> labelI(imgHt, imgWd);
+    CDataTempl<int> labelI(imgHt, imgWd);
     PrepareData(fpath, labelI);
     
     Graph<Supix, Edge, BndryPix> mygraph(imgHt, imgWd);
@@ -18,7 +18,7 @@ void testGraph(std::string fpath, UINT32 imgHt, UINT32 imgWd){
     mygraph.MergeSuperPixels(1, 2);
 
 
-    CDataTempl<UINT32> outLabel;
+    CDataTempl<int> outLabel;
     outLabel = mygraph.AssignOutputLabel();
     
     WriteToCSV(outLabel, "./output/test_graph.csv");
@@ -27,8 +27,8 @@ void testGraph(std::string fpath, UINT32 imgHt, UINT32 imgWd){
 }
 
 int main(){
-    UINT32 imgHt = 375;
-    UINT32 imgWd = 500;
+    int imgHt = 375;
+    int imgWd = 500;
     std::string fpath = "./input/"; 
     
     testGraph(fpath, imgHt, imgWd);

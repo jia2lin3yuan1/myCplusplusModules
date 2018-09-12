@@ -8,7 +8,7 @@
  */
 
 
-void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<double> &semM, CDataTempl<UINT32> &instI){
+void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<double> &semM, CDataTempl<int> &instI){
     ReadFromCSV(distM, fpath+"dist0.csv", 0);
     ReadFromCSV(distM, fpath+"dist1.csv", 1);
     ReadFromCSV(distM, fpath+"dist2.csv", 2);
@@ -45,29 +45,29 @@ void PrepareData(std::string fpath, CDataTempl<double> &distM, CDataTempl<double
 
 
 void testSegmentGrow(std::string fpath, std::string fname){
-    CDataTempl<UINT32> shape(2);
+    CDataTempl<int> shape(2);
     ReadFromCSV(shape, fpath+"size.csv", 0);
-    UINT32 imgHt = shape.GetData(0);
-    UINT32 imgWd = shape.GetData(1);
+    int imgHt = shape.GetData(0);
+    int imgWd = shape.GetData(1);
     
     CDataTempl<double> distM(imgHt, imgWd, 4);
     CDataTempl<double> semM(imgHt, imgWd, 21);
-    CDataTempl<UINT32> instI(imgHt, imgWd);
+    CDataTempl<int> instI(imgHt, imgWd);
     PrepareData(fpath, distM, semM, instI);
 #ifdef DEBUG_FINAL_TRIMAP
     CDataTempl<double> maskI;
 #else
-    CDataTempl<UINT32> maskI;
+    CDataTempl<int> maskI;
 #endif
     ProposalGenerate(distM, semM, instI, maskI);
     
     // visulizing.
     cout<<"channel number is: "<<maskI.GetZDim()<<endl;
     //return; 
-    for(UINT32 k=0; k < maskI.GetZDim(); k++){
+    for(int k=0; k < maskI.GetZDim(); k++){
         string outPath   = "/media/yuanjial/LargeDrive/Results/python-instanceinference/Cython_output/"+fname+std::string("_")+std::to_string(k)+".png";
         string py_command = std::string("python pyShow.py") + std::string(" --o ") + outPath;
-        // string py_command = std::string("python pyShow.py");
+        //string py_command = std::string("python pyShow.py");
         cout<<py_command<<endl; 
         WriteToCSV(maskI, "./output/test.csv", k);
         system(py_command.c_str());
@@ -76,7 +76,7 @@ void testSegmentGrow(std::string fpath, std::string fname){
 
 
 int main(){
-    UINT32 cnt = 0;
+    int cnt = 0;
     std::string fname;
     
     std::string fdir;

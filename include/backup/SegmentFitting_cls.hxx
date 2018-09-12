@@ -404,7 +404,7 @@ void Segment_Fit::FindKeyPoints(const int numPt, const vector<int> &ptY, const v
     // check points [1, numPt-2]
     int state_0 = 0,  state_1 = 0;
     for(int k=1; k < numPt-1; k ++){
-        if(true){//IsKeyPoint(k, state_0, state_1)){
+        if(IsKeyPoint(k, state_0, state_1)){
             out_key_idxs.insert(out_key_idxs.end(), k);
         }
     }
